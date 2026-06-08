@@ -1,3 +1,12 @@
 # ninja log v7
 0	25603	1780318758146605990	/home/zhaohongyang/TR-SPMM/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	e10a644f858a7706
 3	26078	1780379645681605675	/home/zhaohongyang/TR-SPMM/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	e10a644f858a7706
+3	25763	1780843881463997057	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+16	25031	1780845306206084868	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+15	25559	1780845523173874135	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+15	24309	1780883452654727742	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+15	26515	1780896958410748821	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+16	26865	1780897906304848085	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+15	27322	1780898271271023251	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+15	26694	1780903600398834481	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06
+16	25957	1780923868489801451	/home/zhangzhixuan/TR-SPMM_zzx/TR-source/build/temp.linux-x86_64-cpython-39/Block/block_online.o	4bbaee40c82cba06

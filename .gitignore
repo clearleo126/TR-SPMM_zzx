@@ -1,2 +1,10 @@
 datasets/
 dgl_dataset/
+.venv/
+__pycache__/
+*.pyc
+build/
+*.so
+*.o
+.ninja_log
+.ninja_deps
