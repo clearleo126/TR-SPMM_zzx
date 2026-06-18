@@ -24,6 +24,7 @@ python setup_cuda.py build_ext --inplace
 python test_24_matching.py
 python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/datasets/mip1/mip1.mtx --window 16
 python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/datasets/gupta1/gupta1.mtx --window 16
+python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/datasets/2D_27628_bjtcai/2D_27628_bjtcai.mtx --window 16
 python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/datasets/Bump_2911/Bump_2911.mtx --window 16
 
 
