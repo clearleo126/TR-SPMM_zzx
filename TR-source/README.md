@@ -10,8 +10,12 @@ python setup_online.py build_ext --inplace
 python spmm_3090_fp16_test.py 128 mip1   
 在TR-source/目录下是编译block分块的代码，在TR-source/SpMM/下就是编译内核代码
 
+
+## block_matching_cuda.cu
+
+### 运行方法
 conda activate libra
-cd /home/zhangzhixuan/TR-SPMM_zzx
+cd /home/zhangzhixuan/TR-SPMM_zzx/TR-source
 
 
 编译block_matching_cuda.cu对应的python文件
@@ -39,6 +43,22 @@ conda activate libra
 cd /home/zhangzhixuan/TR-SPMM_zzx/TR-source
 python setup_cuda.py build_ext --inplace
 python test_24_matching.py --cuda --path /home/zhangzhixuan/TR-SPMM_zzx/datasets/mip1/mip1.mtx --window 16
+
+### cuda优化策略
+
+| 优化项 | 说明 | 位置 |
+|---------|------|------|
+| **预分配全局工作区** | 使用 PyTorch CUDA Tensor 一次性分配所有 workspace（temp/masks/matched/pairs/pair_used/hash），避免 kernel 内反复 `cudaMalloc/cudaFree` | [第1216-1300行](Block/block_match_cuda.cu#L1216-L1300) |
+| **PyTorch 缓存分配器** | 使用 `torch::empty` 代替原始 `cudaMalloc/cudaFree`，减少大型矩阵分配开销和抖动 | [第1262-1290行](Block/block_match_cuda.cu#L1262-L1290) |
+| **64/128 线程自适应** | 按窗口 nnz 分桶：轻窗口（≤512）用 64 线程，重窗口用 128 线程，减少空转和同步开销 | [第1287-1319行](Block/block_match_cuda.cu#L1287-L1319) |
+| **巨型窗口多 block 拆分** | 对超大窗口（nnz≥8192），先用单 block 构建窗口列信息，再用多 block 并行匹配 pair/group，解决负载不均问题 | [第821-1194行](Block/block_match_cuda.cu#L821-L1194) |
+| **多阶段 kernel 分离** | 将匹配分为 build/pair/init/group 四个 kernel，分别优化，避免单 kernel 内过度复杂的分支和状态同步 | [第821-1194行](Block/block_match_cuda.cu#L821-L1194) |
+| **warp 级任务队列** | 每个 warp 独立从全局任务队列取 i/pair_idx，warp 内并行搜索 j，减少 block 级同步粒度，提升整体吞吐量 | [第948-1061行](Block/block_match_cuda.cu#L948-L1061), [第1085-1194行](Block/block_match_cuda.cu#L1085-L1194) |
+| **top-2 重试机制** | warp 内同时计算 best 和 second best，best 被抢占时自动尝试 second best，降低无意义 fallback，改善匹配质量 | [第176-208行](Block/block_match_cuda.cu#L176-L208) |
+| **byte atomic claim** | 使用按 4 字节对齐的 atomicCAS 实现按位占用标记，避免对齐问题，提高原子操作可靠性 | [第212-228行](Block/block_match_cuda.cu#L212-L228) |
+
+
+
 ## block_online.cpp 代码结构
 
 ### 一、数据结构定义
@@ -191,44 +211,6 @@ kernel_breakdown: tc=XXXX.XXXX, cuda=XXXX.XXXX, cuda_long=XXXX.XXXX, cuda_short=
 ```
 
 
-## 可能的创新点（gemini
-
-### Idea 1: 动态/自适应的 2:4 稀疏度宽容架构 (Adaptive SPTC Padding)
-痛点分析 ：
-目前的 SPTC 要求 严格的 2:4 稀疏 （每 4 个元素必须恰好有 2 个非零）。在 MP-SpMM 和 Libra 中，为了凑齐 2:4，如果匹配不到完美的 4 列，就会 强行补零 (Zero-padding) 或者 退回给 CUDA Core 。强行补零浪费了 Tensor Core 算力，退回 CUDA 则打破了执行的连续性，导致严重的负载不均衡。
-
-创新点 ：
-我们能否 不强求完美的 2:4 匹配 ，而是引入一种 混合/自适应填充策略 ？
-
-- 跨窗口借用 (Cross-Window Borrowing) ：如果当前 16 行窗口凑不齐 4 列，允许从相邻的 16 行窗口中“借用”非零元填入。因为稠密矩阵 `X` 是共享的，只要维护好行索引映射，跨窗口打包可以大幅减少补零。
-- 计算重用 (Computation Reuse) ：在强行补零的位置，不填 0，而是填入该行其他列的非零元（相当于让 TC 冗余计算），然后在 Shared Memory 归约阶段进行去重。这利用了 TC 极高的吞吐量来掩盖分支散度。
-故事包装 (Storyline) ：
-"打破 2:4 刚性约束：一种面向 Sparse Tensor Core 的自适应弹性打包机制。"
-
-### Idea 2: 面向 1:2 或 2:8 混合稀疏的软硬件协同调度 (Mixed-Ratio Sparse Routing)
-痛点分析 ：
-NVIDIA 的 Sparse Tensor Core 原生支持 2:4，但实际图数据集的度数分布是极其长尾的（Power-law）。三级漏斗（TC -> 2:4 SPTC -> CUDA）对极度稀疏的部分（比如度数 < 2 的节点）处理很差，依然大量依赖 CUDA Core。
-
-创新点 ：
-
-- 虚拟稀疏比 (Virtual Sparse Ratios) ：在软件层面，我们把矩阵划分为 1:2 区域（极稀疏）、2:4 区域（中等）和 8:8 区域（全稠密 TC）。
-- 对于 1:2 区域，我们通过特定的内存排布，让两个 1:2 的逻辑块在寄存器中 交织 (Interleave) 成一个物理的 2:4 块，一次 mma.sp 指令计算两个极稀疏区域。
-- 创新命名 ：不需要图匹配，而是 多粒度张量折叠 (Multi-granularity Tensor Folding) 。
-故事包装 (Storyline) ：
-"超越 2:4：针对长尾图数据的多粒度虚拟稀疏张量核心加速器。"
-
-### Idea 3: 延迟掩盖与预处理计算融合 (Compute-Fused Preprocessing)
-痛点分析 ：
-无论是 Libra 还是 MP-SpMM，它们的预处理开销（包括 O(1) 冲突检测和图匹配）都在 CPU 上进行，或者作为 GPU 上非常昂贵的独立 Kernel。在 GNN 训练的每个 Epoch 甚至推断中，如果图结构发生变化（如 Graph Sampling/Dropout），这种 静态预处理的开销是不可接受的 。
-
-创新点 ：
-
-- 在线/即时打包 (On-the-fly Packing) ：抛弃复杂的全局图匹配。设计一个极其轻量的 GPU Kernel，在执行 SpMM 之前，仅仅利用 Warp-level 的原生原语（如 __match_any_sync , __popc ），在加载数据到 Shared Memory 的瞬间， 即时决定 谁进 TC、谁进 SPTC。
-- 将 MP-SpMM 的 O(1) 编码下放到 GPU 的 Warp 调度器中。Warp 内的 32 个线程各自持有 1 列的信息，通过 Warp Shuffle 直接完成 32 列的局部匹配，完全省去 CPU 预处理。
-故事包装 (Storyline) ：
-"零开销的 Sparse Tensor Core 路由：基于 Warp-level 即时匹配的动态 SpMM。"
 
 
 
-nvcc -O3 -arch=sm_86 /home/zhangzhixuan/TR-SPMM_zzx/TR-source/Block/warp_match_poc.cu -o /home/zhangzhixuan/TR-SPMM_zzx/TR-source/Block/warp_match_poc
-/home/zhangzhixuan/TR-SPMM_zzx/TR-source/Block/warp_match_poc

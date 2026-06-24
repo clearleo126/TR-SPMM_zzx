@@ -125,7 +125,7 @@ struct Pair1x2Device {
  *                    与 CPU 版的 GROUP_SEARCH_WINDOW=1024 一致。
  */
 constexpr int kMinBlockThreads = 64;
-constexpr int kMaxBlockThreads = 1024;
+constexpr int kMaxBlockThreads = 128;
 constexpr int kSearchWindow = 512;
 constexpr int kGroupSearchWindow = 1024;
 constexpr int kWarpSize = 32;
@@ -563,7 +563,7 @@ __global__ void match_2to4_kernel(
 
     int local_fine_fb = 0;
     const int T_MAX = 12;
-    const int SEARCH_WINDOW = (num_cols > 16384) ? 64 : (num_cols > 4096) ? 128 : kSearchWindow;
+    const int SEARCH_WINDOW = (num_cols > 4096) ? 256 : kSearchWindow;
     const int warp_id = threadIdx.x / kWarpSize;
     const int lane = threadIdx.x % kWarpSize;
 
@@ -695,7 +695,7 @@ __global__ void match_2to4_kernel(
     int num_groups_local = 0;
     int local_coarse_fb = 0;
     int local_fake_zeros = 0;
-    const int GROUP_SEARCH_WINDOW = (num_pairs > 8192) ? 128 : (num_pairs > 2048) ? 256 : kGroupSearchWindow;
+    const int GROUP_SEARCH_WINDOW = (num_pairs > 2048) ? 512 : kGroupSearchWindow;
 
     __shared__ int shared_next_pair_i;
     __shared__ int shared_num_groups_local;
@@ -818,381 +818,6 @@ __global__ void match_2to4_kernel(
     }
 }
 
-template <int kBlockThreads>
-__global__ void build_window_data_kernel(
-    const int* row_ptr,
-    const int* col_ind,
-    int rows,
-    int window_size,
-    const int* window_ids,
-    int* workspace_temp,
-    uint16_t* workspace_masks,
-    uint8_t* workspace_matched,
-    int* workspace_hash_keys,
-    unsigned int* workspace_hash_masks,
-    int* window_num_cols)
-{
-    constexpr int kNumWarps = kBlockThreads / kWarpSize;
-
-    const int win_id = window_ids[blockIdx.x];
-    const int row_start = win_id * window_size;
-    if (row_start >= rows) {
-        return;
-    }
-
-    const int row_end = min(row_start + window_size, rows);
-    const int workspace_offset = row_ptr[row_start];
-    const int window_nnz = row_ptr[row_end] - row_ptr[row_start];
-    if (window_nnz <= 0) {
-        if (threadIdx.x == 0) {
-            window_num_cols[win_id] = 0;
-        }
-        return;
-    }
-
-    int* temp_storage = workspace_temp + workspace_offset;
-    uint16_t* masks = workspace_masks + workspace_offset;
-    uint8_t* matched = workspace_matched + workspace_offset;
-    const int hash_offset = workspace_offset << 1;
-    const int hash_size = window_nnz << 1;
-    int* hash_keys = workspace_hash_keys + hash_offset;
-    unsigned int* hash_masks = workspace_hash_masks + hash_offset;
-
-    __shared__ int shared_num_cols;
-    __shared__ int shared_warp_sums[kNumWarps];
-    __shared__ int shared_warp_offsets[kNumWarps];
-
-    for (int i = threadIdx.x; i < hash_size; i += blockDim.x) {
-        hash_keys[i] = -1;
-        hash_masks[i] = 0u;
-    }
-    __syncthreads();
-
-    for (int r = row_start + threadIdx.x; r < row_end; r += blockDim.x) {
-        const int local_row = r - row_start;
-        const unsigned int bit = 1u << local_row;
-        for (int e = row_ptr[r]; e < row_ptr[r + 1]; ++e) {
-            const int c = col_ind[e];
-            unsigned int h =
-                (static_cast<unsigned int>(c) * 2654435761u) % static_cast<unsigned int>(hash_size);
-            for (int probe = 0; probe < hash_size; ++probe) {
-                const int prev = atomicCAS(&hash_keys[h], -1, c);
-                if (prev == -1 || prev == c) {
-                    atomicOr(&hash_masks[h], bit);
-                    break;
-                }
-                ++h;
-                if (h == static_cast<unsigned int>(hash_size)) {
-                    h = 0;
-                }
-            }
-        }
-    }
-    __syncthreads();
-
-    int local_count = 0;
-    for (int i = threadIdx.x; i < hash_size; i += blockDim.x) {
-        local_count += (hash_keys[i] != -1) ? 1 : 0;
-    }
-    int x = local_count;
-    for (int offset = 1; offset < kWarpSize; offset <<= 1) {
-        const int y = __shfl_up_sync(0xffffffffu, x, offset);
-        if ((threadIdx.x & (kWarpSize - 1)) >= offset) {
-            x += y;
-        }
-    }
-
-    const int warp_id = threadIdx.x / kWarpSize;
-    const int lane = threadIdx.x & (kWarpSize - 1);
-    if (lane == kWarpSize - 1) {
-        shared_warp_sums[warp_id] = x;
-    }
-    __syncthreads();
-
-    if (warp_id == 0) {
-        int w = (lane < kNumWarps) ? shared_warp_sums[lane] : 0;
-        for (int offset = 1; offset < kWarpSize; offset <<= 1) {
-            const int y = __shfl_up_sync(0xffffffffu, w, offset);
-            if (lane >= offset) {
-                w += y;
-            }
-        }
-        if (lane < kNumWarps) {
-            shared_warp_offsets[lane] = w - shared_warp_sums[lane];
-        }
-        if (lane == kNumWarps - 1) {
-            shared_num_cols = w;
-        }
-    }
-    __syncthreads();
-
-    const int prefix = shared_warp_offsets[warp_id] + (x - local_count);
-    int out = prefix;
-    for (int i = threadIdx.x; i < hash_size; i += blockDim.x) {
-        if (hash_keys[i] != -1) {
-            masks[out++] = static_cast<uint16_t>(hash_masks[i]);
-        }
-    }
-    __syncthreads();
-
-    const int num_cols = shared_num_cols;
-    for (int i = threadIdx.x; i < num_cols; i += blockDim.x) {
-        matched[i] = 0;
-        temp_storage[i] = popcount16(masks[i]);
-    }
-    if (threadIdx.x == 0) {
-        window_num_cols[win_id] = num_cols;
-    }
-}
-
-template <int kBlockThreads>
-__global__ void match_pairs_multi_block_kernel(
-    const int* row_ptr,
-    int rows,
-    int window_size,
-    const int* window_ids,
-    int blocks_per_window,
-    const int* window_num_cols,
-    int* window_next_i,
-    int* window_num_pairs,
-    int* window_fine_fb,
-    int* workspace_temp,
-    uint16_t* workspace_masks,
-    uint8_t* workspace_matched,
-    Pair1x2Device* workspace_pairs)
-{
-    const int logical_block = blockIdx.x / blocks_per_window;
-    const int win_id = window_ids[logical_block];
-    const int row_start = win_id * window_size;
-    if (row_start >= rows) {
-        return;
-    }
-
-    const int workspace_offset = row_ptr[row_start];
-    const int num_cols = window_num_cols[win_id];
-    if (num_cols <= 0) {
-        return;
-    }
-
-    int* temp_storage = workspace_temp + workspace_offset;
-    uint16_t* masks = workspace_masks + workspace_offset;
-    Pair1x2Device* pairs = workspace_pairs + workspace_offset;
-
-    const int T_MAX = 12;
-    const int SEARCH_WINDOW = (num_cols > 16384) ? 64 : (num_cols > 4096) ? 128 : kSearchWindow;
-    const int lane = threadIdx.x % kWarpSize;
-
-    while (true) {
-        int i = 0;
-        if (lane == 0) {
-            i = atomicAdd(&window_next_i[win_id], 1);
-        }
-        i = __shfl_sync(0xffffffffu, i, 0);
-        if (i >= num_cols) {
-            break;
-        }
-
-        const int gi = workspace_offset + i;
-        if (workspace_matched[gi]) {
-            continue;
-        }
-
-        const uint16_t mask_i = masks[i];
-        int best_score = 1 << 30;
-        int best_j = -1;
-        int second_score = 1 << 30;
-        int second_j = -1;
-        const int j_end = min(num_cols, i + 1 + SEARCH_WINDOW);
-        for (int j = i + 1 + lane; j < j_end; j += kWarpSize) {
-            if (workspace_matched[workspace_offset + j]) {
-                continue;
-            }
-            const int overlap = popcount16(static_cast<uint16_t>(mask_i & masks[j]));
-            if (overlap > T_MAX) {
-                continue;
-            }
-            const int score = overlap * 64 + (16 - temp_storage[j]);
-            update_top2_pair(score, j, best_score, best_j, second_score, second_j);
-        }
-        warp_best_pair(best_score, best_j);
-        best_j = __shfl_sync(0xffffffffu, best_j, 0);
-
-        int retry_score = second_score;
-        int retry_j = second_j;
-        warp_best_pair(retry_score, retry_j);
-        retry_j = __shfl_sync(0xffffffffu, retry_j, 0);
-
-        if (lane == 0) {
-            if (!try_claim_u8(workspace_matched, gi)) {
-                continue;
-            }
-
-            int final_j = -1;
-            if (best_j != -1) {
-                const int gj = workspace_offset + best_j;
-                if (try_claim_u8(workspace_matched, gj)) {
-                    final_j = best_j;
-                }
-            }
-            if (final_j == -1 && retry_j != -1) {
-                const int gj = workspace_offset + retry_j;
-                if (try_claim_u8(workspace_matched, gj)) {
-                    final_j = retry_j;
-                }
-            }
-
-            const int pair_idx = atomicAdd(&window_num_pairs[win_id], 1);
-            Pair1x2Device& p = pairs[pair_idx];
-            p.mask1 = mask_i;
-            if (final_j != -1) {
-                p.mask2 = masks[final_j];
-                p.G1 = static_cast<uint16_t>(mask_i & masks[final_j]);
-                p.G2 = static_cast<uint16_t>(mask_i | masks[final_j]);
-                p.nnz = static_cast<uint8_t>(temp_storage[i] + temp_storage[final_j]);
-            } else {
-                p.mask2 = 0;
-                p.G1 = 0;
-                p.G2 = mask_i;
-                atomicAdd(&window_fine_fb[win_id], 1);
-                p.nnz = static_cast<uint8_t>(temp_storage[i]);
-            }
-        }
-    }
-}
-
-template <int kBlockThreads>
-__global__ void init_pair_used_kernel(
-    const int* row_ptr,
-    int rows,
-    int window_size,
-    const int* window_ids,
-    const int* window_num_pairs,
-    uint8_t* workspace_pair_used)
-{
-    const int win_id = window_ids[blockIdx.x];
-    const int row_start = win_id * window_size;
-    if (row_start >= rows) {
-        return;
-    }
-    const int workspace_offset = row_ptr[row_start];
-    const int num_pairs = window_num_pairs[win_id];
-    uint8_t* pair_used = workspace_pair_used + workspace_offset;
-    for (int i = threadIdx.x; i < num_pairs; i += blockDim.x) {
-        pair_used[i] = 0;
-    }
-}
-
-template <int kBlockThreads>
-__global__ void match_groups_multi_block_kernel(
-    const int* row_ptr,
-    int rows,
-    int window_size,
-    const int* window_ids,
-    int blocks_per_window,
-    const int* window_num_pairs,
-    int* window_next_pair_i,
-    int* window_num_groups,
-    int* window_coarse_fb,
-    int* window_fake_zeros,
-    Pair1x2Device* workspace_pairs,
-    uint8_t* workspace_pair_used)
-{
-    const int logical_block = blockIdx.x / blocks_per_window;
-    const int win_id = window_ids[logical_block];
-    const int row_start = win_id * window_size;
-    if (row_start >= rows) {
-        return;
-    }
-
-    const int row_end = min(row_start + window_size, rows);
-    const int win_rows = row_end - row_start;
-    const int workspace_offset = row_ptr[row_start];
-    const int num_pairs = window_num_pairs[win_id];
-    if (num_pairs <= 0) {
-        return;
-    }
-
-    Pair1x2Device* pairs = workspace_pairs + workspace_offset;
-    const int GROUP_SEARCH_WINDOW =
-        (num_pairs > 8192) ? 128 : (num_pairs > 2048) ? 256 : kGroupSearchWindow;
-    const int lane = threadIdx.x % kWarpSize;
-
-    while (true) {
-        int i = 0;
-        if (lane == 0) {
-            i = atomicAdd(&window_next_pair_i[win_id], 1);
-        }
-        i = __shfl_sync(0xffffffffu, i, 0);
-        if (i >= num_pairs) {
-            break;
-        }
-
-        const int gi = workspace_offset + i;
-        if (workspace_pair_used[gi]) {
-            continue;
-        }
-
-        const Pair1x2Device pa = pairs[i];
-        int best_group_score = 1 << 30;
-        int best_group_j = -1;
-        int second_group_score = 1 << 30;
-        int second_group_j = -1;
-        const int j_end = min(num_pairs, i + 1 + GROUP_SEARCH_WINDOW);
-        for (int j = i + 1 + lane; j < j_end; j += kWarpSize) {
-            if (workspace_pair_used[workspace_offset + j]) {
-                continue;
-            }
-            const Pair1x2Device pb = pairs[j];
-            const uint16_t conflict =
-                static_cast<uint16_t>((pa.G1 & pb.G2) | (pa.G2 & pb.G1));
-            if (conflict != 0) {
-                continue;
-            }
-            const int total_nnz = static_cast<int>(pa.nnz) + static_cast<int>(pb.nnz);
-            const int score = 64 - total_nnz;
-            update_top2_pair(
-                score, j, best_group_score, best_group_j, second_group_score, second_group_j);
-        }
-        warp_best_pair(best_group_score, best_group_j);
-        best_group_j = __shfl_sync(0xffffffffu, best_group_j, 0);
-
-        int retry_group_score = second_group_score;
-        int retry_group_j = second_group_j;
-        warp_best_pair(retry_group_score, retry_group_j);
-        retry_group_j = __shfl_sync(0xffffffffu, retry_group_j, 0);
-
-        if (lane == 0) {
-            if (!try_claim_u8(workspace_pair_used, gi)) {
-                continue;
-            }
-
-            int selected_j = -1;
-            if (best_group_j != -1) {
-                const int gj = workspace_offset + best_group_j;
-                if (try_claim_u8(workspace_pair_used, gj)) {
-                    selected_j = best_group_j;
-                }
-            }
-            if (selected_j == -1 && retry_group_j != -1) {
-                const int gj = workspace_offset + retry_group_j;
-                if (try_claim_u8(workspace_pair_used, gj)) {
-                    selected_j = retry_group_j;
-                }
-            }
-
-            atomicAdd(&window_num_groups[win_id], 1);
-            if (selected_j != -1) {
-                const Pair1x2Device pb = pairs[selected_j];
-                atomicAdd(&window_fake_zeros[win_id],
-                          fake_zero_cost(pa.mask1, pa.mask2, pb.mask1, pb.mask2, win_rows));
-            } else {
-                atomicAdd(&window_coarse_fb[win_id], 2);
-                atomicAdd(&window_fake_zeros[win_id], fake_zero_cost(pa.mask1, pa.mask2, 0, 0, win_rows));
-            }
-        }
-    }
-}
-
 // ============================================================================
 // Host 端包装函数
 //
@@ -1264,6 +889,8 @@ py::dict match_2to4_cuda(
     const auto int16_options = torch::TensorOptions().device(device).dtype(torch::kInt16);
 
     // 使用 CUDA tensor 承载 workspace，底层由 PyTorch caching allocator 管理。
+    torch::Tensor device_stats_buffer =
+        torch::empty({static_cast<int64_t>(sizeof(MatchStats))}, uint8_options);
     torch::Tensor workspace_temp_tensor = torch::empty({workspace_elems}, int_options);
     torch::Tensor workspace_masks_tensor = torch::empty({workspace_elems}, int16_options);
     torch::Tensor workspace_matched_tensor = torch::empty({workspace_elems}, uint8_options);
@@ -1272,6 +899,9 @@ py::dict match_2to4_cuda(
     torch::Tensor workspace_pair_used_tensor = torch::empty({workspace_elems}, uint8_options);
     torch::Tensor workspace_hash_keys_tensor = torch::empty({hash_elems}, int_options);
     torch::Tensor workspace_hash_masks_tensor = torch::empty({hash_elems}, int_options);
+
+    MatchStats* device_stats =
+        reinterpret_cast<MatchStats*>(device_stats_buffer.data_ptr<uint8_t>());
     int* workspace_temp = workspace_temp_tensor.data_ptr<int>();
     uint16_t* workspace_masks =
         reinterpret_cast<uint16_t*>(workspace_masks_tensor.data_ptr<int16_t>());
@@ -1283,10 +913,11 @@ py::dict match_2to4_cuda(
     unsigned int* workspace_hash_masks =
         reinterpret_cast<unsigned int*>(workspace_hash_masks_tensor.data_ptr<int>());
 
+    err = cudaMemcpy(device_stats, &host_stats, sizeof(MatchStats), cudaMemcpyHostToDevice);
+    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy host->device 失败: ", cudaGetErrorString(err));
+
     const int num_windows = host_stats.num_row_panels;
     constexpr int kLightWindowNnzThreshold = 512;
-    constexpr int kGiantWindowNnzThreshold = 4096;
-    constexpr int kGiantBlocksPerWindow = 4;
 
     std::vector<int> host_row_ptr(static_cast<size_t>(rows) + 1);
     err = cudaMemcpy(host_row_ptr.data(),
@@ -1297,10 +928,8 @@ py::dict match_2to4_cuda(
 
     std::vector<int> light_window_ids;
     std::vector<int> heavy_window_ids;
-    std::vector<int> giant_window_ids;
     light_window_ids.reserve(num_windows);
     heavy_window_ids.reserve(num_windows);
-    giant_window_ids.reserve(num_windows);
 
     for (int win_id = 0; win_id < num_windows; ++win_id) {
         const int row_start = win_id * window_size;
@@ -1311,10 +940,8 @@ py::dict match_2to4_cuda(
         }
         if (window_nnz <= kLightWindowNnzThreshold) {
             light_window_ids.push_back(win_id);
-        } else if (window_nnz <= kGiantWindowNnzThreshold) {
-            heavy_window_ids.push_back(win_id);
         } else {
-            giant_window_ids.push_back(win_id);
+            heavy_window_ids.push_back(win_id);
         }
     }
 
@@ -1335,234 +962,57 @@ py::dict match_2to4_cuda(
 
     torch::Tensor light_window_ids_tensor;
     torch::Tensor heavy_window_ids_tensor;
-    torch::Tensor giant_window_ids_tensor;
-
-    torch::Tensor window_num_cols_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_next_i_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_num_pairs_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_fine_fb_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_next_pair_i_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_num_groups_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_coarse_fb_tensor = torch::zeros({num_windows}, int_options);
-    torch::Tensor window_fake_zeros_tensor = torch::zeros({num_windows}, int_options);
-
-    int* window_num_cols = window_num_cols_tensor.data_ptr<int>();
-    int* window_next_i = window_next_i_tensor.data_ptr<int>();
-    int* window_num_pairs = window_num_pairs_tensor.data_ptr<int>();
-    int* window_fine_fb = window_fine_fb_tensor.data_ptr<int>();
-    int* window_next_pair_i = window_next_pair_i_tensor.data_ptr<int>();
-    int* window_num_groups = window_num_groups_tensor.data_ptr<int>();
-    int* window_coarse_fb = window_coarse_fb_tensor.data_ptr<int>();
-    int* window_fake_zeros = window_fake_zeros_tensor.data_ptr<int>();
-
-    auto launch_build = [&](torch::Tensor& ids_tensor, int host_count, int threads) {
-        if (host_count <= 0) {
-            return;
-        }
-        if (threads == kMinBlockThreads) {
-            build_window_data_kernel<kMinBlockThreads><<<host_count, kMinBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                col_ind.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                workspace_temp,
-                workspace_masks,
-                workspace_matched,
-                workspace_hash_keys,
-                workspace_hash_masks,
-                window_num_cols);
-        } else {
-            build_window_data_kernel<kMaxBlockThreads><<<host_count, kMaxBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                col_ind.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                workspace_temp,
-                workspace_masks,
-                workspace_matched,
-                workspace_hash_keys,
-                workspace_hash_masks,
-                window_num_cols);
-        }
-    };
-
-    auto launch_pairs = [&](torch::Tensor& ids_tensor, int host_count, int threads, int blocks_per_window) {
-        if (host_count <= 0) {
-            return;
-        }
-        const int grid = host_count * blocks_per_window;
-        if (threads == kMinBlockThreads) {
-            match_pairs_multi_block_kernel<kMinBlockThreads><<<grid, kMinBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                blocks_per_window,
-                window_num_cols,
-                window_next_i,
-                window_num_pairs,
-                window_fine_fb,
-                workspace_temp,
-                workspace_masks,
-                workspace_matched,
-                workspace_pairs);
-        } else {
-            match_pairs_multi_block_kernel<kMaxBlockThreads><<<grid, kMaxBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                blocks_per_window,
-                window_num_cols,
-                window_next_i,
-                window_num_pairs,
-                window_fine_fb,
-                workspace_temp,
-                workspace_masks,
-                workspace_matched,
-                workspace_pairs);
-        }
-    };
-
-    auto launch_init_pair_used = [&](torch::Tensor& ids_tensor, int host_count, int threads) {
-        if (host_count <= 0) {
-            return;
-        }
-        if (threads == kMinBlockThreads) {
-            init_pair_used_kernel<kMinBlockThreads><<<host_count, kMinBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                window_num_pairs,
-                workspace_pair_used);
-        } else {
-            init_pair_used_kernel<kMaxBlockThreads><<<host_count, kMaxBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                window_num_pairs,
-                workspace_pair_used);
-        }
-    };
-
-    auto launch_groups = [&](torch::Tensor& ids_tensor, int host_count, int threads, int blocks_per_window) {
-        if (host_count <= 0) {
-            return;
-        }
-        const int grid = host_count * blocks_per_window;
-        if (threads == kMinBlockThreads) {
-            match_groups_multi_block_kernel<kMinBlockThreads><<<grid, kMinBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                blocks_per_window,
-                window_num_pairs,
-                window_next_pair_i,
-                window_num_groups,
-                window_coarse_fb,
-                window_fake_zeros,
-                workspace_pairs,
-                workspace_pair_used);
-        } else {
-            match_groups_multi_block_kernel<kMaxBlockThreads><<<grid, kMaxBlockThreads>>>(
-                row_ptr.data_ptr<int>(),
-                rows,
-                window_size,
-                ids_tensor.data_ptr<int>(),
-                blocks_per_window,
-                window_num_pairs,
-                window_next_pair_i,
-                window_num_groups,
-                window_coarse_fb,
-                window_fake_zeros,
-                workspace_pairs,
-                workspace_pair_used);
-        }
-    };
 
     if (!light_window_ids.empty()) {
         light_window_ids_tensor = copy_window_ids_to_device(light_window_ids);
-        launch_build(light_window_ids_tensor, static_cast<int>(light_window_ids.size()), kMinBlockThreads);
+        match_2to4_kernel<kMinBlockThreads><<<static_cast<int>(light_window_ids.size()),
+                                              kMinBlockThreads>>>(
+            row_ptr.data_ptr<int>(),
+            col_ind.data_ptr<int>(),
+            rows,
+            window_size,
+            light_window_ids_tensor.data_ptr<int>(),
+            workspace_temp,
+            workspace_masks,
+            workspace_matched,
+            workspace_pairs,
+            workspace_pair_used,
+            workspace_hash_keys,
+            workspace_hash_masks,
+            device_stats);
     }
+
     if (!heavy_window_ids.empty()) {
         heavy_window_ids_tensor = copy_window_ids_to_device(heavy_window_ids);
-        launch_build(heavy_window_ids_tensor, static_cast<int>(heavy_window_ids.size()), kMaxBlockThreads);
+        match_2to4_kernel<kMaxBlockThreads><<<static_cast<int>(heavy_window_ids.size()),
+                                              kMaxBlockThreads>>>(
+            row_ptr.data_ptr<int>(),
+            col_ind.data_ptr<int>(),
+            rows,
+            window_size,
+            heavy_window_ids_tensor.data_ptr<int>(),
+            workspace_temp,
+            workspace_masks,
+            workspace_matched,
+            workspace_pairs,
+            workspace_pair_used,
+            workspace_hash_keys,
+            workspace_hash_masks,
+            device_stats);
     }
-    if (!giant_window_ids.empty()) {
-        giant_window_ids_tensor = copy_window_ids_to_device(giant_window_ids);
-        launch_build(giant_window_ids_tensor, static_cast<int>(giant_window_ids.size()), kMaxBlockThreads);
-    }
-
-    launch_pairs(light_window_ids_tensor, static_cast<int>(light_window_ids.size()), kMinBlockThreads, 1);
-    launch_pairs(heavy_window_ids_tensor, static_cast<int>(heavy_window_ids.size()), kMaxBlockThreads, 1);
-    launch_pairs(giant_window_ids_tensor, static_cast<int>(giant_window_ids.size()), kMaxBlockThreads,
-                 kGiantBlocksPerWindow);
-
-    launch_init_pair_used(light_window_ids_tensor, static_cast<int>(light_window_ids.size()), kMinBlockThreads);
-    launch_init_pair_used(heavy_window_ids_tensor, static_cast<int>(heavy_window_ids.size()), kMaxBlockThreads);
-    launch_init_pair_used(giant_window_ids_tensor, static_cast<int>(giant_window_ids.size()), kMaxBlockThreads);
-
-    launch_groups(light_window_ids_tensor, static_cast<int>(light_window_ids.size()), kMinBlockThreads, 1);
-    launch_groups(heavy_window_ids_tensor, static_cast<int>(heavy_window_ids.size()), kMaxBlockThreads, 1);
-    launch_groups(giant_window_ids_tensor, static_cast<int>(giant_window_ids.size()), kMaxBlockThreads,
-                  kGiantBlocksPerWindow);
 
     err = cudaGetLastError();
     if (err != cudaSuccess) {
-        TORCH_CHECK(false, "多阶段 match kernel 启动失败: ", cudaGetErrorString(err));
+        TORCH_CHECK(false, "match_2to4_kernel 启动失败: ", cudaGetErrorString(err));
     }
 
     err = cudaDeviceSynchronize();
     if (err != cudaSuccess) {
-        TORCH_CHECK(false, "多阶段 match kernel 执行失败: ", cudaGetErrorString(err));
+        TORCH_CHECK(false, "match_2to4_kernel 执行失败: ", cudaGetErrorString(err));
     }
 
-    std::vector<int> host_num_groups(num_windows, 0);
-    std::vector<int> host_fine_fb(num_windows, 0);
-    std::vector<int> host_coarse_fb(num_windows, 0);
-    std::vector<int> host_fake_zeros(num_windows, 0);
-    err = cudaMemcpy(host_num_groups.data(),
-                     window_num_groups,
-                     static_cast<size_t>(num_windows) * sizeof(int),
-                     cudaMemcpyDeviceToHost);
-    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy num_groups device->host 失败: ", cudaGetErrorString(err));
-    err = cudaMemcpy(host_fine_fb.data(),
-                     window_fine_fb,
-                     static_cast<size_t>(num_windows) * sizeof(int),
-                     cudaMemcpyDeviceToHost);
-    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy fine_fb device->host 失败: ", cudaGetErrorString(err));
-    err = cudaMemcpy(host_coarse_fb.data(),
-                     window_coarse_fb,
-                     static_cast<size_t>(num_windows) * sizeof(int),
-                     cudaMemcpyDeviceToHost);
-    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy coarse_fb device->host 失败: ", cudaGetErrorString(err));
-    err = cudaMemcpy(host_fake_zeros.data(),
-                     window_fake_zeros,
-                     static_cast<size_t>(num_windows) * sizeof(int),
-                     cudaMemcpyDeviceToHost);
-    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy fake_zeros device->host 失败: ", cudaGetErrorString(err));
-
-    host_stats.num_groups = 0;
-    host_stats.num_16x16_blocks = 0;
-    host_stats.block_padding_groups = 0;
-    host_stats.fine_fb = 0;
-    host_stats.coarse_fb = 0;
-    host_stats.fake_zeros = 0;
-    for (int win_id = 0; win_id < num_windows; ++win_id) {
-        const int local_groups = host_num_groups[win_id];
-        const int local_blocks = (local_groups + 3) / 4;
-        host_stats.num_groups += local_groups;
-        host_stats.num_16x16_blocks += local_blocks;
-        host_stats.block_padding_groups += local_blocks * 4 - local_groups;
-        host_stats.fine_fb += host_fine_fb[win_id];
-        host_stats.coarse_fb += host_coarse_fb[win_id];
-        host_stats.fake_zeros += host_fake_zeros[win_id];
-    }
+    err = cudaMemcpy(&host_stats, device_stats, sizeof(MatchStats), cudaMemcpyDeviceToHost);
+    TORCH_CHECK(err == cudaSuccess, "cudaMemcpy device->host 失败: ", cudaGetErrorString(err));
 
     std::printf("\n");
     std::printf("╔══════════════════════════════════════════════╗\n");
