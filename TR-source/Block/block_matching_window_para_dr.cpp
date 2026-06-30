@@ -100,6 +100,12 @@ static void match_window_2to4(
     int n = (int)columns.size();
     if (n == 0) return;
 
+    // ---- 构建 col_id → nnz O(1) 查找表 (供 TC 密度统计使用) ----
+    std::unordered_map<int, int> col_nnz_lut;
+    col_nnz_lut.reserve(n);
+    for (const auto& col : columns)
+        col_nnz_lut[col.col_id] = col.nnz;
+
     // ---- 步骤 1: 按原始列索引排序 ----
     std::sort(columns.begin(), columns.end(),
         [](const WinColumn& a, const WinColumn& b) {
@@ -212,13 +218,7 @@ static void match_window_2to4(
         for (int k = 0; k < dense_threshold; ++k) {
             int col_id = local_dense_pool[processed + k];
             out_tc_flat.push_back(col_id);
-
-            // O(log N) 二分查列在当前窗口的 nnz
-            WinColumn target;
-            target.col_id = col_id;
-            auto it = std::lower_bound(columns.begin(), columns.end(), target);
-            if (it != columns.end() && it->col_id == col_id)
-                block_nnz += it->nnz;
+            block_nnz += col_nnz_lut[col_id];  // O(1) 查表
         }
         win_stats.tc_total_nnz += block_nnz;
         win_stats.tc_block_count++;
@@ -238,18 +238,7 @@ static void match_window_2to4(
                 if (k < 2 && idx < nd) {
                     int col_id = local_dense_pool[idx++];
                     out_sptc_flat.push_back(col_id);
-
-                    // O(log N) 二分查找: 步骤1 已按 col_id 升序排列
-                    WinColumn target;
-                    target.col_id = col_id;
-                    // auto it = std::lower_bound(columns.begin(), columns.end(), target,
-                    //     [](const WinColumn& a, const WinColumn& b) {
-                    //         return a.col_id < b.col_id;
-                    //     });
-                    auto it = std::lower_bound(columns.begin(), columns.end(), target);
-                    if (it != columns.end() && it->col_id == col_id) {
-                        fallback_nnz += it->nnz;
-                    }
+                    fallback_nnz += col_nnz_lut[col_id];  // O(1) 查表
                 } else {
                     out_sptc_flat.push_back(-1);
                 }
