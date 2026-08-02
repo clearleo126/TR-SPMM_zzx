@@ -214,7 +214,12 @@ kernel_breakdown: tc=XXXX.XXXX, cuda=XXXX.XXXX, cuda_long=XXXX.XXXX, cuda_short=
 
 ## block_matching_window_para_dr.cpp
 这是并行窗口匹配的cpp实现，使用openmp并行化
+conda activate libra
 cd TR-source
 python setup_24matching.py build_ext --inplace
-python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM/dgl_dataset/sp_matrix/mip1.npz
 
+cd TR-source
+python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/dgl_dataset/sp_matrix/mip1.npz
+python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/dgl_dataset/sp_matrix/2D_27628_bjtcai.npz
+python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/dgl_dataset/sp_matrix/Bump_2911.npz
+python test_24_matching.py --path /home/zhangzhixuan/TR-SPMM_zzx/dgl_dataset/sp_matrix/gupta1.npz

@@ -184,9 +184,9 @@ def validate_stats(mat, stats):
     max_sptc_slots = num_sptc * 32
     fake = stats["fake_zeros"]
     total_slots = reported_nnz + fake
-    if total_slots > expected_total:
+    if total_slots > max_sptc_slots:
         errors.append(
-            f"容量不足: real_nnz+fake_zeros={total_slots}, capacity=num_groups*32={expected_total}"
+            f"容量不足: real_nnz+fake_zeros={total_slots}, capacity=num_groups*32={max_sptc_slots}"
         )
 
     if errors:
@@ -391,14 +391,6 @@ def main():
         print("    CUDA: cd TR-source/ && python setup_cuda.py build_ext --inplace")
         print("=" * 60)
         sys.exit(1)
-
-    if args.cuda:
-        if args.window < 1 or args.window > 16:
-            print("错误: CUDA 版本当前仅支持 window_size in [1, 16] (uint16 mask 实现)")
-            sys.exit(1)
-        if not torch.cuda.is_available():
-            print("错误: torch.cuda 不可用，无法运行 CUDA 版本。请检查 NVIDIA 驱动 / CUDA / 可见 GPU。")
-            sys.exit(1)
 
     # ---- 列出数据集 ----
     if args.list:

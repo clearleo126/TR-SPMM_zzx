@@ -536,8 +536,4 @@ PYBIND11_MODULE(matching_utils, m) {
         - coarse_fallback     (粗粒度 Fallback 插入整列0个数)
         - fake_zeros          (元素级假0填充总数)
           )pbdoc");
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> upstream/main

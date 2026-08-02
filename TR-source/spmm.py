@@ -129,7 +129,7 @@ def matrix_to_csr_arrays(mat):
 # (SPTC 元数据压缩在 TR.cpp 中完成)
 # ====================================================================
 
-def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
+def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
     """
     将分块数据传入 GPU 做矩阵乘。
 
@@ -217,6 +217,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
         num_tc_blocks,
         dense_threshold,
         epoches,
+        mode,
     )
 
     return output, elapsed_ms.item()
@@ -246,12 +247,14 @@ def main():
                         help="列出所有可用数据集")
     parser.add_argument("--dimN", type=int, default=128,
                         help="特征维度 N (默认 128)")
-    parser.add_argument("--epoches", type=int, default=10,
-                        help="Benchmark 迭代次数 (默认 10)")
+    parser.add_argument("--epoches", type=int, default=50,
+                        help="Benchmark 迭代次数 (默认 50)")
     parser.add_argument("--window", type=int, default=16,
                         help="窗口行数 (默认 16)")
     parser.add_argument("--dense_threshold", type=int, default=8,
                         help="TC 路由阈值 (默认 8)")
+    parser.add_argument("--mode", type=int, default=0,
+                        help="诊断模式: 0=Full(双流), 1=TC-only, 2=SPTC-only (默认 0)")
     parser.add_argument("--no-verify", action="store_true",
                         help="跳过 CPU 结果验证")
     args = parser.parse_args()
@@ -322,12 +325,40 @@ def main():
     num_tc = int(result_dict["tc_window_offset"][-1].item())
     print(f"  SPTC 块: {num_sptc}, TC 块: {num_tc}")
 
+    # ---- per-window 块分布统计 (straggler 分析) ----
+    try:
+        sptc_wo = result_dict["sptc_window_offset"].numpy()
+        tc_wo = result_dict["tc_window_offset"].numpy()
+        sptc_per_win = np.diff(sptc_wo)      # 每窗口 SPTC 块数
+        tc_per_win = np.diff(tc_wo)          # 每窗口 TC 块数
+
+        def dist_summary(name, arr):
+            if arr.size == 0 or arr.sum() == 0:
+                print(f"  [{name}] 无块")
+                return
+            arr = arr.astype(np.int64)
+            nz = arr[arr > 0]
+            print(f"  [{name}] 非空窗口数={nz.size}/{arr.size}, "
+                  f"均值={arr.mean():.2f}, "
+                  f"最大={arr.max()}, "
+                  f"P99={np.percentile(arr, 99):.0f}, "
+                  f"P90={np.percentile(arr, 90):.0f}, "
+                  f"中位={np.median(arr):.0f}")
+            # 最大窗口的贡献占比: 最重窗口块数 / 总块数
+            print(f"          最大窗口占比={arr.max() / max(arr.sum(), 1) * 100:.2f}%")
+
+        print("  [Per-Window 块分布]")
+        dist_summary("SPTC", sptc_per_win)
+        dist_summary("TC", tc_per_win)
+    except Exception as e:
+        print(f"  (per-window 统计失败: {e})")
+
     # ---- GPU 矩阵乘 ----
     dimN = args.dimN
     epoches = args.epoches
 
     output, elapsed_ms = run_gpu_spmm(
-        result_dict, rows, cols, dimN, epoches=epoches)
+        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode)
 
     print(f"\n[结果] GPU SpMM 平均耗时: {elapsed_ms:.4f} ms (over {epoches} iterations)")
     print(f"  输出形状: {list(output.shape)}")
