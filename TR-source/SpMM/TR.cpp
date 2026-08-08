@@ -54,7 +54,8 @@ extern "C" float tr_spmm_forward(
     int num_tc_chunks,
     int dense_threshold,
     int epoches,
-    int mode);
+    int mode,
+    int warmup);
 
 
 // ============================================================================
@@ -191,7 +192,8 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     const int num_tc_blocks,
     const int dense_threshold,
     int epoches,
-    int mode)
+    int mode,
+    int warmup)
 {
     // ====================================================================
     // 0. 输入验证
@@ -387,6 +389,8 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     half *d_tc_value_dense;
     half *d_rhs_matrix;
     float *d_output;
+    // 对齐16的倍数
+    int mOri_padded = num_windows * window_size;
 
     cuda_malloc_or_dummy(&d_sptc_chunk_win, (int64_t)num_sptc_chunks);
     cuda_malloc_or_dummy(&d_sptc_chunk_beg, (int64_t)num_sptc_chunks);
@@ -402,11 +406,12 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     cuda_malloc_or_dummy(&d_tc_col_old, (int64_t)num_tc_blocks * 16);
     cuda_malloc_or_dummy(&d_tc_value_dense, (int64_t)num_tc_blocks * 256);
     cuda_malloc_or_dummy(&d_rhs_matrix, (int64_t)kOri * dimN);
-    cuda_malloc_or_dummy(&d_output, (int64_t)mOri * dimN);
+    cuda_malloc_or_dummy(&d_output, (int64_t)mOri_padded * dimN);
 
     // ====================================================================
     // 4. 拷贝数据到 GPU
     // ====================================================================
+    auto h2d_start = std::chrono::high_resolution_clock::now();
     cuda_copy_h2d_if_needed(d_sptc_chunk_win, sptc_chunk_win.data(), (int64_t)num_sptc_chunks);
     cuda_copy_h2d_if_needed(d_sptc_chunk_beg, sptc_chunk_beg.data(), (int64_t)num_sptc_chunks);
     cuda_copy_h2d_if_needed(d_sptc_chunk_end, sptc_chunk_end.data(), (int64_t)num_sptc_chunks);
@@ -426,6 +431,9 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
         checkCuda(cudaMemcpy(d_sptc_packed_meta, sptc_packed_meta_vec.data(),
                    num_packed_meta * sizeof(uint32_t), cudaMemcpyHostToDevice));
     }
+    auto h2d_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> h2d_elapsed = h2d_end - h2d_start;
+    printf("[TR.cpp] H2D copy: %.4f ms\n", h2d_elapsed.count() * 1000.0);
 
     // ====================================================================
     // 5. 启动 CUDA 内核
@@ -457,16 +465,17 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
         num_tc_chunks,
         dense_threshold,
         epoches,
-        mode);
+        mode,
+        warmup);
 
     // ====================================================================
     // 6. 拷贝结果回 CPU
     // ====================================================================
-    auto output_matrix = torch::empty({mOri, dimN}, torch::kFloat32).to(torch::kCPU);
+    auto output_matrix = torch::empty({mOri_padded, dimN}, torch::kFloat32).to(torch::kCPU);
     float* output_ptr = output_matrix.data_ptr<float>();
 
     checkCuda(cudaMemcpy(output_ptr, d_output,
-               (int64_t)mOri * dimN * sizeof(float), cudaMemcpyDeviceToHost));
+               (int64_t)mOri_padded * dimN * sizeof(float), cudaMemcpyDeviceToHost));
 
     // ====================================================================
     // 7. 释放 GPU 内存
@@ -488,7 +497,7 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     cudaFree(d_output);
     cudaDeviceSynchronize();
 
-    return {output_matrix, torch::tensor(spmm_ms_avg)};
+    return {output_matrix.narrow(0, 0, mOri), torch::tensor(spmm_ms_avg)};
 }
 
 
@@ -536,6 +545,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("dense_threshold"),
           py::arg("epoches"),
           py::arg("mode") = 0,
+          py::arg("warmup") = 50,
           R"pbdoc(
 对分块后的 TC/SPTC 数据执行 GPU 矩阵乘运算.
 

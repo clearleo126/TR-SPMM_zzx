@@ -129,7 +129,7 @@ def matrix_to_csr_arrays(mat):
 # (SPTC 元数据压缩在 TR.cpp 中完成)
 # ====================================================================
 
-def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
+def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0, warmup=50):
     """
     将分块数据传入 GPU 做矩阵乘。
 
@@ -218,6 +218,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
         dense_threshold,
         epoches,
         mode,
+        warmup,
     )
 
     return output, elapsed_ms.item()
@@ -255,8 +256,10 @@ def main():
                         help="TC 路由阈值 (默认 8)")
     parser.add_argument("--mode", type=int, default=0,
                         help="诊断模式: 0=Full(双流), 1=TC-only, 2=SPTC-only (默认 0)")
-    parser.add_argument("--no-verify", action="store_true",
-                        help="跳过 CPU 结果验证")
+    parser.add_argument("--verify", action="store_true",
+                        help="执行 CPU 结果验证 (默认关闭, 与 MP 对齐)")
+    parser.add_argument("--warmup", type=int, default=50,
+                        help="warmup 迭代次数 (默认 50, 与 MP 对齐)")
     args = parser.parse_args()
 
     # ---- 导入 C++ 模块 ----
@@ -300,6 +303,8 @@ def main():
         print(f"[自动选择] {name}")
 
     # ---- 加载矩阵 ----
+    t_e2e_start = time.perf_counter()
+    t_load_start = time.perf_counter()
     mat = load_matrix(filepath)
     print(f"  矩阵形状: {mat.shape[0]} × {mat.shape[1]}")
     print(f"  非零元:   {mat.nnz}")
@@ -307,6 +312,7 @@ def main():
 
     # ---- 转为 CSR 数组 ----
     row_ptr, col_ind, values, rows, cols = matrix_to_csr_arrays(mat)
+    load_time = time.perf_counter() - t_load_start
 
     # ---- 执行分块匹配 ----
     print(f"\n[分块] 调用 matching_utils.match_2to4 "
@@ -357,14 +363,36 @@ def main():
     dimN = args.dimN
     epoches = args.epoches
 
+    t_forward_start = time.perf_counter()
     output, elapsed_ms = run_gpu_spmm(
-        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode)
+        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode,
+        warmup=args.warmup)
+    forward_time = time.perf_counter() - t_forward_start
+    e2e_spmm_time = time.perf_counter() - t_e2e_start
 
-    print(f"\n[结果] GPU SpMM 平均耗时: {elapsed_ms:.4f} ms (over {epoches} iterations)")
+    print(f"\n[结果] GPU SpMM 平均耗时: {elapsed_ms:.4f} ms "
+          f"(over {epoches} iterations, warmup={args.warmup})")
     print(f"  输出形状: {list(output.shape)}")
 
+    # ---- Setting-1 (offline): 预处理与 SpMM 分开计时, 与 DTC-SpMM / MP-SpMM 同口径 ----
+    # Stage-1 预处理 (load + match): 对应 MP 的 preprocess_iter / DTC 的 preprocess_gpu
+    # Stage-2 SpMM: 对应 MP 的 ./spmm (含 metadata pack + H2D + warmup + kernel + D2H)
+    preprocess_time = load_time + blocking_time
+    print(f"\n[Setting-1 offline] (与 DTC-SpMM / MP-SpMM 同口径, 不含 CPU 验证)")
+    print(f"  [Stage-1 预处理] (不计入 SpMM E2E)")
+    print(f"    矩阵加载 + CSR 转换:       {load_time:.4f} s")
+    print(f"    分块匹配 (match_2to4):     {blocking_time:.4f} s")
+    print(f"    预处理合计:                {preprocess_time:.4f} s")
+    print(f"  [Stage-2 SpMM] (Setting-1 E2E)")
+    print(f"    forward 总耗时             "
+          f"(compress+densify+chunk+H2D+warmup+kernel+D2H): {forward_time:.4f} s")
+    print(f"      └─ kernel (cudaEvent):   {elapsed_ms:.4f} ms/iter")
+    print(f"  ─────────────────────────────────────────")
+    print(f"  SpMM E2E (Setting-1, 推荐对比口径): {forward_time:.4f} s")
+    print(f"  全流程 E2E (含预处理, 仅参考):      {e2e_spmm_time:.4f} s")
+
     # ---- CPU 验证 ----
-    if not args.no_verify:
+    if args.verify:
         print("\n[验证] 计算 CPU 参考结果...")
         B_np = torch.randn(cols, dimN, dtype=torch.float32).numpy()
         # 重新用相同的 B 做 GPU 推理
@@ -391,6 +419,8 @@ def main():
                 num_tc,
                 args.dense_threshold,
                 1,
+                0,
+                0,
             )
         except ImportError:
             print("  TR_SPMM 未编译, 跳过验证")

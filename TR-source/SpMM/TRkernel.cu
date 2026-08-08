@@ -136,12 +136,10 @@ __global__ void tr_tc_kernel(
             // B fragment: 行 col_old[k0..k0+1], 列 n_col
             int gk0 = __ldg(bcol + k0);
             int gk1 = __ldg(bcol + k0 + 1);
-            half b0_val = __float2half(0.0f);
-            half b1_val = __float2half(0.0f);
-            if (n_col < dimN) {
-                if (gk0 >= 0 && gk0 < kOri) b0_val = __ldg(rhs_matrix + gk0 * dimN + n_col);
-                if (gk1 >= 0 && gk1 < kOri) b1_val = __ldg(rhs_matrix + gk1 * dimN + n_col);
-            }
+
+            half b0_val = __ldg(rhs_matrix + gk0 * dimN + n_col);
+            half b1_val = __ldg(rhs_matrix + gk1 * dimN + n_col);
+            
             uint32_t b = pack_half2_u32(b0_val, b1_val);
 
             asm volatile(
@@ -157,25 +155,11 @@ __global__ void tr_tc_kernel(
     bool need_atomic = (__ldg(tc_chunk_atomic + chunk_id) != 0);
 
     if (need_atomic) {
-        if (row0 < mOri && out_col0 + 1 < dimN)
-            atomic_add_float2(&output_matrix[row0 * dimN + out_col0], c0, c1);
-        else if (row0 < mOri && out_col0 < dimN)
-            atomicAdd(&output_matrix[row0 * dimN + out_col0], c0);
-
-        if (row1 < mOri && out_col0 + 1 < dimN)
-            atomic_add_float2(&output_matrix[row1 * dimN + out_col0], c2, c3);
-        else if (row1 < mOri && out_col0 < dimN)
-            atomicAdd(&output_matrix[row1 * dimN + out_col0], c2);
+        atomic_add_float2(&output_matrix[row0 * dimN + out_col0], c0, c1);
+        atomic_add_float2(&output_matrix[row1 * dimN + out_col0], c2, c3);
     } else {
-        if (row0 < mOri && out_col0 + 1 < dimN)
-            *reinterpret_cast<float2*>(&output_matrix[row0 * dimN + out_col0]) = make_float2(c0, c1);
-        else if (row0 < mOri && out_col0 < dimN)
-            output_matrix[row0 * dimN + out_col0] = c0;
-
-        if (row1 < mOri && out_col0 + 1 < dimN)
-            *reinterpret_cast<float2*>(&output_matrix[row1 * dimN + out_col0]) = make_float2(c2, c3);
-        else if (row1 < mOri && out_col0 < dimN)
-            output_matrix[row1 * dimN + out_col0] = c2;
+        *reinterpret_cast<float2*>(&output_matrix[row0 * dimN + out_col0]) = make_float2(c0, c1);
+        *reinterpret_cast<float2*>(&output_matrix[row1 * dimN + out_col0]) = make_float2(c2, c3);
     }
 }
 
@@ -330,18 +314,14 @@ __global__ void tr_sptc_kernel(
             RB[7] = (hi2 >> 16) | (hi3 & 0xFFFF0000u);
         } else {
             // 慢路径: 标量逐列读取 (边界/非法 gk)
-            bool ok0 = (gk0 >= 0 && gk0 < kOri);
-            bool ok1 = (gk1 >= 0 && gk1 < kOri);
-            bool ok2 = (gk2 >= 0 && gk2 < kOri);
-            bool ok3 = (gk3 >= 0 && gk3 < kOri);
 #pragma unroll
             for (int j = 0; j < 4; ++j) {
                 int nc = dense_B_idx_base + j;
-                bool n_ok = (nc < dimN);
-                half bv0 = (n_ok && ok0) ? __ldg(rhs_matrix + gk0 * dimN + nc) : __float2half(0.0f);
-                half bv1 = (n_ok && ok1) ? __ldg(rhs_matrix + gk1 * dimN + nc) : __float2half(0.0f);
-                half bv2 = (n_ok && ok2) ? __ldg(rhs_matrix + gk2 * dimN + nc) : __float2half(0.0f);
-                half bv3 = (n_ok && ok3) ? __ldg(rhs_matrix + gk3 * dimN + nc) : __float2half(0.0f);
+
+                half bv0 = __ldg(rhs_matrix + gk0 * dimN + nc);
+                half bv1 = __ldg(rhs_matrix + gk1 * dimN + nc);
+                half bv2 = __ldg(rhs_matrix + gk2 * dimN + nc);
+                half bv3 = __ldg(rhs_matrix + gk3 * dimN + nc);
                 RB[j * 2 + 0] = pack_half2_u32(bv0, bv1);
                 RB[j * 2 + 1] = pack_half2_u32(bv2, bv3);
             }
@@ -378,66 +358,26 @@ __global__ void tr_sptc_kernel(
 
         if (need_atomic) {
             // 原子路径: 窗口有多个 chunk 或同时存在 TC 块 (多写者)
-            if (row0 < mOri && c + 7 < dimN) {
                 atomic_add_float2(&output_matrix[row0 * dimN + c + 0], RC[0],  RC[4]);
                 atomic_add_float2(&output_matrix[row0 * dimN + c + 2], RC[8],  RC[12]);
                 atomic_add_float2(&output_matrix[row0 * dimN + c + 4], RC[1],  RC[5]);
                 atomic_add_float2(&output_matrix[row0 * dimN + c + 6], RC[9],  RC[13]);
-            } else {
-#pragma unroll
-                for (int j = 0; j < 4; ++j) {
-                    if (row0 < mOri && c + j < dimN)
-                        atomicAdd(&output_matrix[row0 * dimN + c + j], RC[j * 4 + 0]);
-                    if (row0 < mOri && c + j + 4 < dimN)
-                        atomicAdd(&output_matrix[row0 * dimN + c + j + 4], RC[j * 4 + 1]);
-                }
-            }
 
-            if (row1 < mOri && c + 7 < dimN) {
                 atomic_add_float2(&output_matrix[row1 * dimN + c + 0], RC[2],  RC[6]);
                 atomic_add_float2(&output_matrix[row1 * dimN + c + 2], RC[10], RC[14]);
                 atomic_add_float2(&output_matrix[row1 * dimN + c + 4], RC[3],  RC[7]);
                 atomic_add_float2(&output_matrix[row1 * dimN + c + 6], RC[11], RC[15]);
-            } else {
-#pragma unroll
-                for (int j = 0; j < 4; ++j) {
-                    if (row1 < mOri && c + j < dimN)
-                        atomicAdd(&output_matrix[row1 * dimN + c + j], RC[j * 4 + 2]);
-                    if (row1 < mOri && c + j + 4 < dimN)
-                        atomicAdd(&output_matrix[row1 * dimN + c + j + 4], RC[j * 4 + 3]);
-                }
-            }
         } else {
             // 普通 store 路径 (同 MP Buint64): 单写者窗口, float4 直写
-            if (row0 < mOri && c + 7 < dimN) {
                 *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 0]) =
                     make_float4(RC[0], RC[4], RC[8], RC[12]);
                 *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 4]) =
                     make_float4(RC[1], RC[5], RC[9], RC[13]);
-            } else {
-#pragma unroll
-                for (int j = 0; j < 4; ++j) {
-                    if (row0 < mOri && c + j < dimN)
-                        output_matrix[row0 * dimN + c + j] = RC[j * 4 + 0];
-                    if (row0 < mOri && c + j + 4 < dimN)
-                        output_matrix[row0 * dimN + c + j + 4] = RC[j * 4 + 1];
-                }
-            }
 
-            if (row1 < mOri && c + 7 < dimN) {
                 *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 0]) =
                     make_float4(RC[2], RC[6], RC[10], RC[14]);
                 *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 4]) =
                     make_float4(RC[3], RC[7], RC[11], RC[15]);
-            } else {
-#pragma unroll
-                for (int j = 0; j < 4; ++j) {
-                    if (row1 < mOri && c + j < dimN)
-                        output_matrix[row1 * dimN + c + j] = RC[j * 4 + 2];
-                    if (row1 < mOri && c + j + 4 < dimN)
-                        output_matrix[row1 * dimN + c + j + 4] = RC[j * 4 + 3];
-                }
-            }
         }
     }
 #endif
@@ -574,7 +514,8 @@ extern "C" float tr_spmm_forward(
     int num_tc_chunks,
     int dense_threshold,
     int epoches,
-    int mode)   // 0=Full, 1=TC-only, 2=SPTC-only (诊断模式)
+    int mode,   // 0=Full, 1=TC-only, 2=SPTC-only (诊断模式)
+    int warmup)
 {
     long long elements = (long long)mOri * dimN;
     cudaMemset(d_output, 0, (size_t)elements * sizeof(float));
@@ -585,8 +526,8 @@ extern "C" float tr_spmm_forward(
     cudaStreamCreateWithFlags(&stream_tc, cudaStreamNonBlocking);
     cudaStreamCreateWithFlags(&stream_sptc, cudaStreamNonBlocking);
 
-    // ---- Warmup (10 iterations) ----
-    for (int iter = 0; iter < 10; ++iter) {
+    // ---- Warmup ----
+    for (int iter = 0; iter < warmup; ++iter) {
         cudaMemsetAsync(d_output, 0, (size_t)elements * sizeof(float), stream_tc);
         cudaStreamSynchronize(stream_tc);
 
