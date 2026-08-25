@@ -2,10 +2,9 @@
  * TRkernel.cu - TC (Dense MMA) + SPTC (mma.sp) 双流并行 CUDA 内核
  *
  * 架构 (最终版):
- *   - TC  kernel: 稠密 Tensor Core GEMM (mma.sync.aligned.m16n8k8).
- *     A 数据由 TR.cpp CPU 端展开为 16×16 稠密 tile, 内核直接 __ldg 加载
- *     A fragment, 无 smem / 无 __syncthreads; 窗口内按 TC_CHUNK 分块并行
- *     消除 straggler.
+ *   - TC  kernel: 稠密 Tensor Core GEMM (mma.sync.aligned.m16n8k16).
+ *     每 CTA 覆盖全部 N 列 (grid.y 移除), A fragment 每块加载一次由 4 次
+ *     mma 复用; B 用 uint64 宽加载; 窗口内按 TC_CHUNK 分块并行消除 straggler.
  *   - SPTC kernel: 结构化稀疏 Tensor Core GEMM (mma.sp.sync.aligned.m16n8k16).
  *     A/meta 寄存器双缓冲 + 每 CTA 覆盖全部 N (Buint64 宽加载, 同 MP).
  *     窗口内按 SPTC_CHUNK 分块并行.
@@ -23,6 +22,10 @@
  *   [E] TC/SPTC: 窗口内分块 (chunking), 每 CTA 至多处理 CHUNK 块, 消除
  *       straggler 窗口 (mip1 单窗口最多 8299 个 TC 块).
  *   [F] 写回: 单写者窗口普通 store, 多写者窗口 atomicAdd.
+ *   [G] TC: 每 CTA 覆盖全部 N (grid 改 (num_chunks,1)), A fragment 块级
+ *       加载一次, 4 次 mma 复用, 消除 feature_tiles 倍 A 重复加载.
+ *   [H] TC: B 改 4×uint64 宽加载 (每线程 4 连续 N 列, 交错布局同 SPTC).
+ *   [I] TC: m16n8k16 (dense_threshold>8) 替代 2×m16n8k8, mma 指令数减半.
  */
 
 #include <cuda_fp16.h>
@@ -60,26 +63,25 @@ static __device__ __forceinline__ void atomic_add_float2(float* addr, float a, f
 }
 
 // ============================================================================
-// TC Kernel - 稠密 A tile 直接加载 (无 smem / 无同步) + 窗口内分块并行
+// TC Kernel - 稠密 A tile 直接加载 + 每 CTA 覆盖全部 N
 //
-// Grid:  (num_chunks, feature_tiles) 2D   —— chunk 化消除 straggler
-// Block: (128, 1, 1)  4 warps × 32 lanes
+// Grid:  (num_chunks, 1)   —— chunk 化消除 straggler
+// Block: (32, warp_count, 1)  warp_count = ceil(dimN/32), 每 warp 覆盖 32 列 N
 //
-// [方案E] TC A 数据 CPU 端稠密化:
-//   旧版每块做 smem scatter 重建 A (128 次全局读 + 256 次 smem 写 + 2 次
-//   __syncthreads) 却只服务 1 次 mma, scatter 延迟主导 (mip1 实测 ~13ms).
-//   现在 TR.cpp 把 TC 块展开为 16×16 zero-padded 稠密 tile
-//   (tc_value_dense[blk*256], 布局 [r*16+c] 与 tc_local_id 一致),
-//   内核每线程直接 __ldg 两个 uint32 拿到 A fragment, 无 smem 无同步.
+// [G] A 复用: 旧版 grid.y = feature_tiles, 同一 A tile 被独立加载
+//     feature_tiles 次 (dimN=128 时 A DRAM 流量 4 倍). 现在每 CTA 覆盖全部 N,
+//     A fragment 每块加载一次, 由 4 次 mma 复用, 跨 warp 走 L1 广播.
+// [H] B 向量化: 每线程 4 个连续 N 列 (交错布局, 同 SPTC), B 用 4×uint64
+//     合并宽加载, 覆盖 4 次 mma 的 B fragment.
+// [I] m16n8k16: dense_threshold>8 时单次 mma 覆盖 K=16, 指令数减半;
+//     dense_threshold<=8 走 k8 变体 tr_tc_kernel_k8 (A 只有低 8 列有数据).
 //
-// [方案F] 窗口内分块 (chunking):
-//   一个窗口的 TC 块数极不均 (mip1: 中位 6, 最大 8299). 若每个窗口一个 CTA,
-//   straggler 窗口 (8299 块串行) 决定总耗时 (mip1 实测 ~10.6ms).
-//   TR.cpp 把每窗口的块切成 ≤TC_CHUNK 的 chunk, 每个 (chunk, feature_tile)
-//   一个 CTA, 每 CTA 至多处理 TC_CHUNK 块 → 负载完全均衡.
+// A 数据由 TR.cpp CPU 端展开为 [num_tc_blocks*256] 16×16 zero-padded tile
+// (布局 [r*16+c] 与 tc_local_id 一致), 内核每线程直接 __ldg 加载 A fragment,
+// 无 smem / 无 __syncthreads; col_old 补齐 16/block (0 pad → B 加载合法).
 // ============================================================================
 
-__global__ void tr_tc_kernel(
+__global__ void tr_tc_kernel_k16(
     const int* __restrict__ tc_chunk_win,      // [num_chunks] 每 chunk 的窗口 id
     const int* __restrict__ tc_chunk_beg,      // [num_chunks] 块起始 (含)
     const int* __restrict__ tc_chunk_end,      // [num_chunks] 块结束 (不含)
@@ -87,79 +89,254 @@ __global__ void tr_tc_kernel(
     const half* __restrict__ tc_value_dense,   // [num_tc_blocks * 256] 16×16 tiles
     const int* __restrict__ tc_col_old,        // [num_tc_blocks * 16] (0 pad)
     const half* __restrict__ rhs_matrix,
-    float* __restrict__ output_matrix,          // 与 SPTC 共享, 用 atomicAdd
+    float* __restrict__ output_matrix,
     int num_chunks,
-    int dense_threshold,
-    int dimN,
-    int mOri,
-    int kOri,
-    int feature_tiles)
+    int dimN)
 {
+#if __CUDA_ARCH__ >= 800
     int chunk_id = blockIdx.x;
-    int feature_tile_id = blockIdx.y;
-    if (chunk_id >= num_chunks || feature_tile_id >= feature_tiles) return;
+    if (chunk_id >= num_chunks) return;
 
     int window_id = __ldg(tc_chunk_win + chunk_id);
     int block_start = __ldg(tc_chunk_beg + chunk_id);
     int block_end   = __ldg(tc_chunk_end + chunk_id);
     if (block_start >= block_end) return;
 
-    int feature_base = feature_tile_id * 32;
-    if (feature_base >= dimN) return;
-
     int lane = threadIdx.x & 31;
-    int warp_id = threadIdx.x >> 5;
-    int groupID = lane >> 2;
-    int tid_in_group = lane & 3;
-    int warp_feat_base = feature_base + warp_id * 8;
+    int warp_id = threadIdx.y;          // 每 warp 覆盖 32 列 N
+    int groupID = lane >> 2;            // 0..7
+    int tid_in_group = lane & 3;        // 0..3
+
+    int warp_feat_base = warp_id * 32;  // 该 warp 的 N 起始偏移
     if (warp_feat_base >= dimN) return;
 
     int window_row = window_id * 16;
     int row0 = window_row + groupID;
     int row1 = row0 + 8;
-    int n_col = warp_feat_base + groupID;   // 该线程的 N 列 (块间固定)
 
-    float c0 = 0.0f, c1 = 0.0f, c2 = 0.0f, c3 = 0.0f;
+    // 每线程 4 个连续 N 列 (交错, 同 SPTC): mma j 用列 dense_B_idx_base+j
+    const int dense_B_idx_base = groupID * 4 + warp_feat_base;
+    bool valid4 = (dense_B_idx_base + 3 < dimN);
 
-    int k_chunks = (dense_threshold + 7) / 8;
+    // C 累加器: 4 次 mma × 每线程 4 float
+    float RC[16] = {0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f};
 
-    // 每块: 直接加载 A fragment (2×uint32) + B (2×half) + 1 次 mma
+    // 每块: 加载 A fragment (4×uint32, 4 次 mma 共享) + B (4×uint64) + 4 次 mma
     for (int blk = block_start; blk < block_end; ++blk) {
         const half* tile = tc_value_dense + blk * 256;
         const int* bcol = tc_col_old + blk * 16;
+
+        // A fragment (m16n8k16): 行 groupID / groupID+8, 列 2t..2t+1 与 2t+8..2t+9
+        uint32_t a0 = __ldg(reinterpret_cast<const uint32_t*>(tile + groupID * 16 + tid_in_group * 2));
+        uint32_t a1 = __ldg(reinterpret_cast<const uint32_t*>(tile + (groupID + 8) * 16 + tid_in_group * 2));
+        uint32_t a2 = __ldg(reinterpret_cast<const uint32_t*>(tile + groupID * 16 + tid_in_group * 2 + 8));
+        uint32_t a3 = __ldg(reinterpret_cast<const uint32_t*>(tile + (groupID + 8) * 16 + tid_in_group * 2 + 8));
+
+        // B 行索引: K 位置 2t,2t+1 (低 8) 与 2t+8,2t+9 (高 8)
+        int gk0 = __ldg(bcol + tid_in_group * 2);
+        int gk1 = __ldg(bcol + tid_in_group * 2 + 1);
+        int gk2 = __ldg(bcol + tid_in_group * 2 + 8);
+        int gk3 = __ldg(bcol + tid_in_group * 2 + 9);
+
+        // B 宽加载: 4 行 × 连续 4 列 = 4×uint64, 重组为 4 次 mma 的 B fragment
+        uint32_t RB[8];
+        if (valid4) {
+            const uint64_t* src0 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk0 * dimN + dense_B_idx_base);
+            const uint64_t* src1 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk1 * dimN + dense_B_idx_base);
+            const uint64_t* src2 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk2 * dimN + dense_B_idx_base);
+            const uint64_t* src3 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk3 * dimN + dense_B_idx_base);
+            uint64_t t0 = src0[0], t1 = src1[0], t2 = src2[0], t3 = src3[0];
+
+            // RB[j*2+0] = pack(B[gk0][base+j], B[gk1][base+j])
+            // RB[j*2+1] = pack(B[gk2][base+j], B[gk3][base+j])
+            const uint32_t lo0 = (uint32_t)t0, lo1 = (uint32_t)t1;
+            const uint32_t lo2 = (uint32_t)t2, lo3 = (uint32_t)t3;
+            const uint32_t hi0 = (uint32_t)(t0 >> 32), hi1 = (uint32_t)(t1 >> 32);
+            const uint32_t hi2 = (uint32_t)(t2 >> 32), hi3 = (uint32_t)(t3 >> 32);
+            RB[0] = (lo0 & 0xFFFFu) | (lo1 << 16);
+            RB[1] = (lo2 & 0xFFFFu) | (lo3 << 16);
+            RB[2] = (lo0 >> 16) | (lo1 & 0xFFFF0000u);
+            RB[3] = (lo2 >> 16) | (lo3 & 0xFFFF0000u);
+            RB[4] = (hi0 & 0xFFFFu) | (hi1 << 16);
+            RB[5] = (hi2 & 0xFFFFu) | (hi3 << 16);
+            RB[6] = (hi0 >> 16) | (hi1 & 0xFFFF0000u);
+            RB[7] = (hi2 >> 16) | (hi3 & 0xFFFF0000u);
+        } else {
+            // 慢路径: 标量逐列读取 (边界/非法 gk)
 #pragma unroll
-        for (int kc = 0; kc < k_chunks; ++kc) {
-            int k0 = kc * 8 + tid_in_group * 2;   // 偶数 → uint32 对齐
-            // A fragment: 行 groupID / groupID+8, 列 k0..k0+1
-            uint32_t a0 = __ldg(reinterpret_cast<const uint32_t*>(tile + groupID * 16 + k0));
-            uint32_t a1 = __ldg(reinterpret_cast<const uint32_t*>(tile + (groupID + 8) * 16 + k0));
-            // B fragment: 行 col_old[k0..k0+1], 列 n_col
-            int gk0 = __ldg(bcol + k0);
-            int gk1 = __ldg(bcol + k0 + 1);
+            for (int j = 0; j < 4; ++j) {
+                int nc = dense_B_idx_base + j;
+                half bv0 = __ldg(rhs_matrix + gk0 * dimN + nc);
+                half bv1 = __ldg(rhs_matrix + gk1 * dimN + nc);
+                half bv2 = __ldg(rhs_matrix + gk2 * dimN + nc);
+                half bv3 = __ldg(rhs_matrix + gk3 * dimN + nc);
+                RB[j * 2 + 0] = pack_half2_u32(bv0, bv1);
+                RB[j * 2 + 1] = pack_half2_u32(bv2, bv3);
+            }
+        }
 
-            half b0_val = __ldg(rhs_matrix + gk0 * dimN + n_col);
-            half b1_val = __ldg(rhs_matrix + gk1 * dimN + n_col);
-            
-            uint32_t b = pack_half2_u32(b0_val, b1_val);
-
+        // 4 次 mma (m16n8k16): 共享 A fragment, 每次用不同 N 列
+#pragma unroll
+        for (int j = 0; j < 4; ++j) {
             asm volatile(
-                "mma.sync.aligned.m16n8k8.row.col.f32.f16.f16.f32 "
-                "{%0, %1, %2, %3}, {%4, %5}, {%6}, {%0, %1, %2, %3};\n"
-                : "+f"(c0), "+f"(c1), "+f"(c2), "+f"(c3)
-                : "r"(a0), "r"(a1), "r"(b));
+                "mma.sync.aligned.m16n8k16.row.col.f32.f16.f16.f32 "
+                "{%0, %1, %2, %3}, {%4, %5, %6, %7}, {%8, %9}, {%0, %1, %2, %3};\n"
+                : "+f"(RC[j * 4 + 0]), "+f"(RC[j * 4 + 1]),
+                  "+f"(RC[j * 4 + 2]), "+f"(RC[j * 4 + 3])
+                : "r"(a0), "r"(a1), "r"(a2), "r"(a3),
+                  "r"(RB[j * 2 + 0]), "r"(RB[j * 2 + 1]));
         }
     }
 
-    // 写回 - 单写者窗口 (chunk_atomic==0) 用普通 store, 否则 atomicAdd
-    int out_col0 = warp_feat_base + tid_in_group * 2;
+    // 写回 (同 SPTC 布局): 每线程 8 列 (列 = warp_feat_base + tid*8 + {0..7}),
+    //   每列 2 行 (row0, row1). 单写者窗口 float4 直写, 否则 float2 atomicAdd.
+    //   行 groupID:   列 c+0..3 ← RC[0],RC[4],RC[8],RC[12]
+    //                 列 c+4..7 ← RC[1],RC[5],RC[9],RC[13]
+    //   行 groupID+8: 列 c+0..3 ← RC[2],RC[6],RC[10],RC[14]
+    //                 列 c+4..7 ← RC[3],RC[7],RC[11],RC[15]
+    int c = warp_feat_base + tid_in_group * 8;
     bool need_atomic = (__ldg(tc_chunk_atomic + chunk_id) != 0);
 
     if (need_atomic) {
-        atomic_add_float2(&output_matrix[row0 * dimN + out_col0], c0, c1);
-        atomic_add_float2(&output_matrix[row1 * dimN + out_col0], c2, c3);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 0], RC[0], RC[4]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 2], RC[8], RC[12]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 4], RC[1], RC[5]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 6], RC[9], RC[13]);
+
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 0], RC[2], RC[6]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 2], RC[10], RC[14]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 4], RC[3], RC[7]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 6], RC[11], RC[15]);
     } else {
-        *reinterpret_cast<float2*>(&output_matrix[row0 * dimN + out_col0]) = make_float2(c0, c1);
-        *reinterpret_cast<float2*>(&output_matrix[row1 * dimN + out_col0]) = make_float2(c2, c3);
+        *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 0]) =
+            make_float4(RC[0], RC[4], RC[8], RC[12]);
+        *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 4]) =
+            make_float4(RC[1], RC[5], RC[9], RC[13]);
+
+        *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 0]) =
+            make_float4(RC[2], RC[6], RC[10], RC[14]);
+        *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 4]) =
+            make_float4(RC[3], RC[7], RC[11], RC[15]);
+    }
+#endif
+}
+
+
+// k8 变体: dense_threshold <= 8 (A tile 只有低 8 列有数据), 单 mma 覆盖 K=8
+__global__ void tr_tc_kernel_k8(
+    const int* __restrict__ tc_chunk_win,
+    const int* __restrict__ tc_chunk_beg,
+    const int* __restrict__ tc_chunk_end,
+    const uint8_t* __restrict__ tc_chunk_atomic,
+    const half* __restrict__ tc_value_dense,
+    const int* __restrict__ tc_col_old,
+    const half* __restrict__ rhs_matrix,
+    float* __restrict__ output_matrix,
+    int num_chunks,
+    int dimN)
+{
+    int chunk_id = blockIdx.x;
+    if (chunk_id >= num_chunks) return;
+
+    int window_id = __ldg(tc_chunk_win + chunk_id);
+    int block_start = __ldg(tc_chunk_beg + chunk_id);
+    int block_end   = __ldg(tc_chunk_end + chunk_id);
+    if (block_start >= block_end) return;
+
+    int lane = threadIdx.x & 31;
+    int warp_id = threadIdx.y;
+    int groupID = lane >> 2;
+    int tid_in_group = lane & 3;
+
+    int warp_feat_base = warp_id * 32;
+    if (warp_feat_base >= dimN) return;
+
+    int window_row = window_id * 16;
+    int row0 = window_row + groupID;
+    int row1 = row0 + 8;
+
+    const int dense_B_idx_base = groupID * 4 + warp_feat_base;
+    bool valid4 = (dense_B_idx_base + 3 < dimN);
+
+    float RC[16] = {0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f,
+                    0.0f, 0.0f, 0.0f, 0.0f};
+
+    for (int blk = block_start; blk < block_end; ++blk) {
+        const half* tile = tc_value_dense + blk * 256;
+        const int* bcol = tc_col_old + blk * 16;
+
+        // A fragment (m16n8k8): 行 groupID / groupID+8, 列 2t..2t+1
+        uint32_t a0 = __ldg(reinterpret_cast<const uint32_t*>(tile + groupID * 16 + tid_in_group * 2));
+        uint32_t a1 = __ldg(reinterpret_cast<const uint32_t*>(tile + (groupID + 8) * 16 + tid_in_group * 2));
+
+        int gk0 = __ldg(bcol + tid_in_group * 2);
+        int gk1 = __ldg(bcol + tid_in_group * 2 + 1);
+
+        // B 宽加载: 2 行 × 连续 4 列 = 2×uint64, 重组为 4 次 mma 的 B fragment
+        uint32_t RB[4];
+        if (valid4) {
+            const uint64_t* src0 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk0 * dimN + dense_B_idx_base);
+            const uint64_t* src1 = reinterpret_cast<const uint64_t*>(rhs_matrix + gk1 * dimN + dense_B_idx_base);
+            uint64_t t0 = src0[0], t1 = src1[0];
+
+            // RB[j] = pack(B[gk0][base+j], B[gk1][base+j])
+            const uint32_t lo0 = (uint32_t)t0, lo1 = (uint32_t)t1;
+            const uint32_t hi0 = (uint32_t)(t0 >> 32), hi1 = (uint32_t)(t1 >> 32);
+            RB[0] = (lo0 & 0xFFFFu) | (lo1 << 16);
+            RB[1] = (lo0 >> 16) | (lo1 & 0xFFFF0000u);
+            RB[2] = (hi0 & 0xFFFFu) | (hi1 << 16);
+            RB[3] = (hi0 >> 16) | (hi1 & 0xFFFF0000u);
+        } else {
+#pragma unroll
+            for (int j = 0; j < 4; ++j) {
+                int nc = dense_B_idx_base + j;
+                half bv0 = __ldg(rhs_matrix + gk0 * dimN + nc);
+                half bv1 = __ldg(rhs_matrix + gk1 * dimN + nc);
+                RB[j] = pack_half2_u32(bv0, bv1);
+            }
+        }
+
+        // 4 次 mma (m16n8k8): 共享 A fragment, 每次用不同 N 列
+#pragma unroll
+        for (int j = 0; j < 4; ++j) {
+            asm volatile(
+                "mma.sync.aligned.m16n8k8.row.col.f32.f16.f16.f32 "
+                "{%0, %1, %2, %3}, {%4, %5}, {%6}, {%0, %1, %2, %3};\n"
+                : "+f"(RC[j * 4 + 0]), "+f"(RC[j * 4 + 1]),
+                  "+f"(RC[j * 4 + 2]), "+f"(RC[j * 4 + 3])
+                : "r"(a0), "r"(a1), "r"(RB[j]));
+        }
+    }
+
+    // 写回 (与 k16 相同布局)
+    int c = warp_feat_base + tid_in_group * 8;
+    bool need_atomic = (__ldg(tc_chunk_atomic + chunk_id) != 0);
+
+    if (need_atomic) {
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 0], RC[0], RC[4]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 2], RC[8], RC[12]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 4], RC[1], RC[5]);
+        atomic_add_float2(&output_matrix[row0 * dimN + c + 6], RC[9], RC[13]);
+
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 0], RC[2], RC[6]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 2], RC[10], RC[14]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 4], RC[3], RC[7]);
+        atomic_add_float2(&output_matrix[row1 * dimN + c + 6], RC[11], RC[15]);
+    } else {
+        *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 0]) =
+            make_float4(RC[0], RC[4], RC[8], RC[12]);
+        *reinterpret_cast<float4*>(&output_matrix[row0 * dimN + c + 4]) =
+            make_float4(RC[1], RC[5], RC[9], RC[13]);
+
+        *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 0]) =
+            make_float4(RC[2], RC[6], RC[10], RC[14]);
+        *reinterpret_cast<float4*>(&output_matrix[row1 * dimN + c + 4]) =
+            make_float4(RC[3], RC[7], RC[11], RC[15]);
     }
 }
 
@@ -407,25 +584,36 @@ static void launch_tc_kernel(
 {
     if (num_chunks <= 0 || num_tc_blocks <= 0 || dimN <= 0 || mOri <= 0) return;
 
-    int feature_tiles = (dimN + 31) / 32;
-    dim3 block_dim(128, 1, 1);
-    dim3 grid_dim(num_chunks, feature_tiles, 1);
+    // 每 CTA 覆盖全部 N: block = (32, warp_count), warp_count = ceil(dimN/32)
+    int warp_count = (dimN + 31) / 32;
+    dim3 block_dim(32, warp_count, 1);
+    dim3 grid_dim(num_chunks, 1, 1);
 
-    tr_tc_kernel<<<grid_dim, block_dim, 0, stream>>>(
-        tc_chunk_win,
-        tc_chunk_beg,
-        tc_chunk_end,
-        tc_chunk_atomic,
-        tc_value_dense,
-        tc_col_old,
-        rhs_matrix,
-        output_matrix,
-        num_chunks,
-        dense_threshold,
-        dimN,
-        mOri,
-        kOri,
-        feature_tiles);
+    if (dense_threshold > 8) {
+        tr_tc_kernel_k16<<<grid_dim, block_dim, 0, stream>>>(
+            tc_chunk_win,
+            tc_chunk_beg,
+            tc_chunk_end,
+            tc_chunk_atomic,
+            tc_value_dense,
+            tc_col_old,
+            rhs_matrix,
+            output_matrix,
+            num_chunks,
+            dimN);
+    } else {
+        tr_tc_kernel_k8<<<grid_dim, block_dim, 0, stream>>>(
+            tc_chunk_win,
+            tc_chunk_beg,
+            tc_chunk_end,
+            tc_chunk_atomic,
+            tc_value_dense,
+            tc_col_old,
+            rhs_matrix,
+            output_matrix,
+            num_chunks,
+            dimN);
+    }
 }
 
 
