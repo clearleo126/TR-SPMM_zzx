@@ -18,6 +18,7 @@
 #include <cuda_runtime.h>
 #include <assert.h>
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <vector>
 #include <cstring>
@@ -27,27 +28,35 @@
 // ============================================================================
 
 extern "C" float tr_spmm_forward(
-    int* d_sptc_window_offset,
+    int* d_sptc_chunk_win,            // [num_sptc_chunks] 每 chunk 的窗口 id
+    int* d_sptc_chunk_beg,            // [num_sptc_chunks] 块起始
+    int* d_sptc_chunk_end,            // [num_sptc_chunks] 块结束
+    uint8_t* d_sptc_chunk_atomic,     // [num_sptc_chunks] 1=写回需 atomicAdd
+    int* d_sptc_block_row,            // [num_sptc_blocks] 每块输出行首 (window_id*16)
     half* d_sptc_value,
     uint32_t* d_sptc_packed_meta,
     int* d_sptc_col_old,
-    int* d_tc_window_offset,
-    int* d_tc_offset,
-    uint8_t* d_tc_local_id,
-    int* d_tc_col_old,
-    half* d_tc_value,
+    int* d_tc_chunk_win,              // [num_chunks] 每 chunk 的窗口 id
+    int* d_tc_chunk_beg,              // [num_chunks] 块起始
+    int* d_tc_chunk_end,              // [num_chunks] 块结束
+    uint8_t* d_tc_chunk_atomic,       // [num_chunks] 1=写回需 atomicAdd
+    half* d_tc_value_dense,           // [num_tc_blocks * 256] 16×16 稠密 tiles
+    int* d_tc_col_old,                // [num_tc_blocks * 16] (0 pad)
     half* d_rhs_matrix,
-    float* d_output_tc,
-    float* d_output_sptc,
+    float* d_output,
     int num_windows,
     int window_size,
     int dimN,
     int mOri,
     int kOri,
     int num_sptc_blocks,
+    int num_sptc_chunks,
     int num_tc_blocks,
+    int num_tc_chunks,
     int dense_threshold,
-    int epoches);
+    int epoches,
+    int mode,
+    int warmup);
 
 
 // ============================================================================
@@ -82,6 +91,19 @@ static void cuda_copy_h2d_if_needed(T* dst, const T* src, int64_t elements) {
     if (elements > 0) {
         checkCuda(cudaMemcpy(dst, src, elements * (int64_t)sizeof(T), cudaMemcpyHostToDevice));
     }
+}
+
+// 计算指定类型 (TC/SPTC) 的 block 分块大小 (每 CTA 处理的 block 数上限)
+//   按矩阵平均 window 大小自动调节:
+//     均窗 < 32   → 32   (小矩阵/小窗: 单 CTA 覆盖整窗, 无 atomic)
+//     均窗 > 512  → 128  (straggler 大窗: 减少 CTA 数, 缓解串行 block 循环)
+//     其他        → 64   (折中)
+int compute_chunk_size(int num_windows, int num_blocks) {
+    if (num_blocks <= 0 || num_windows <= 0) return 64;
+    int avg_window = num_blocks / num_windows;
+    if (avg_window < 32) return 32;
+    if (avg_window > 512) return 128;
+    return 64;
 }
 
 
@@ -183,7 +205,9 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     const int num_sptc_blocks,
     const int num_tc_blocks,
     const int dense_threshold,
-    int epoches)
+    int epoches,
+    int mode,
+    int warmup)
 {
     // ====================================================================
     // 0. 输入验证
@@ -197,7 +221,11 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     CHECK_CPU(tc_local_id);
     CHECK_CPU(tc_col_old);
     CHECK_CPU(tc_value);
-    CHECK_CPU(rhs_matrix);
+    // rhs_matrix 可为 CPU 或 CUDA tensor:
+    //   Python 侧对 B 矩阵直接在 GPU 上生成 (避免 CPU fp16 randn + H2D 拷贝),
+    //   此时 data_ptr 为设备指针, 后续用 DeviceToDevice 拷贝.
+    TORCH_CHECK(rhs_matrix.is_cpu() || rhs_matrix.is_cuda(),
+                "rhs_matrix must be a CPU or CUDA tensor");
 
     ENSURE_CONTIGUOUS(sptc_window_offset);
     ENSURE_CONTIGUOUS(sptc_value);
@@ -269,102 +297,278 @@ std::vector<torch::Tensor> tr_spmm_forward_py(
     const half* rhs_matrix_ = reinterpret_cast<const half*>(rhs_matrix.data_ptr<at::Half>());
 
     // ====================================================================
+    // 2.4 清洗 SPTC col_old: 匹配算法用 -1 表示虚拟全0列 (A=0, mma 贡献为 0),
+    //     替换为 0 使内核 B 加载保持合法地址, 可走无越界检查的快路径.
+    // ====================================================================
+    std::vector<int> sptc_col_old_clean((size_t)sptc_col_old.numel());
+    for (int64_t i = 0; i < sptc_col_old.numel(); ++i)
+        sptc_col_old_clean[(size_t)i] = (sptc_col_old_[i] < 0) ? 0 : sptc_col_old_[i];
+
+    // ====================================================================
+    // 2.5 构建 TC 稠密 A tiles (CPU 端): [num_tc_blocks * 256] half, 16×16
+    //     布局 [r*16+c] 与 tc_local_id 一致, 未用列补 0;
+    //     col_old 补齐到 16/block (0 填充: 对应 A=0, mma 贡献 0, 且 B 加载
+    //     保持合法地址, 可走快路径).
+    //     → 内核每线程直接 __ldg 加载 A fragment, 免去 smem scatter + 同步.
+    // ====================================================================
+    auto tc_densify_start = std::chrono::high_resolution_clock::now();
+    TORCH_CHECK(dense_threshold <= 16,
+                "dense_threshold must be <= 16 for dense-tile layout");
+    std::vector<half> tc_value_dense_vec((size_t)num_tc_blocks * 256, __float2half(0.0f));
+    std::vector<int>  tc_col_old_pad_vec((size_t)num_tc_blocks * 16, 0);
+    if (num_tc_blocks > 0) {
+        for (int blk = 0; blk < num_tc_blocks; ++blk) {
+            half* tile = tc_value_dense_vec.data() + (size_t)blk * 256;
+            int nnz_start = tc_offset_[blk];
+            int nnz_end   = tc_offset_[blk + 1];
+            for (int n = nnz_start; n < nnz_end; ++n) {
+                int local_id = tc_local_id_[n];   // r*16+c, c < dense_threshold
+                tile[local_id] = tc_value_[n];
+            }
+            int* pad_col = tc_col_old_pad_vec.data() + (size_t)blk * 16;
+            for (int k = 0; k < dense_threshold; ++k)
+                pad_col[k] = tc_col_old_[blk * dense_threshold + k];
+        }
+    }
+    auto tc_densify_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> densify_elapsed = tc_densify_end - tc_densify_start;
+    printf("[TR.cpp] TC dense-tile build: %.4f ms\n",
+           densify_elapsed.count() * 1000.0);
+
+    // ====================================================================
+    // 2.6 窗口内分块 (chunking): 按窗口大小分档
+    //     TC_CHUNK 由矩阵平均 window 大小自动调节 (compute_chunk_size).
+    //     Tier 1 (小窗, 整窗单 CTA): 窗口大小 ≤ TC_CHUNK 时整个 window 一个
+    //       CTA; 若该窗口仅 TC 有块 (无 SPTC 共窗) → 完全无 atomic (单 CTA
+    //       寄存器累加 + 单次写回, 无 block 竞争). 若窗口同时有 SPTC 块,
+    //       因双流并发写同 row 区, 仍须 atomic 保正确.
+    //     Tier 2 (大窗 / straggler): 按 chunk 分片, 多 CTA 并行, 用更大的
+    //       STRAGGLER_CHUNK 缓解单 CTA 串行 block 循环的尾延迟.
+    //     tc_chunk_atomic[c]: 该 chunk 写回是否需要 atomicAdd.
+    // ====================================================================
+    const int tc_base_chunk = compute_chunk_size(num_windows, num_tc_blocks);
+    const int tc_straggler_chunk = 128;
+    std::vector<int> tc_chunk_win, tc_chunk_beg, tc_chunk_end;
+    std::vector<uint8_t> tc_chunk_atomic;
+    tc_chunk_win.reserve(num_windows + num_tc_blocks / tc_base_chunk + 16);
+    tc_chunk_beg.reserve(tc_chunk_win.capacity());
+    tc_chunk_end.reserve(tc_chunk_win.capacity());
+    tc_chunk_atomic.reserve(tc_chunk_win.capacity());
+    for (int w = 0; w < num_windows; ++w) {
+        int b0 = tc_window_offset_[w];
+        int b1 = tc_window_offset_[w + 1];
+        if (b0 >= b1) continue;
+        bool has_sptc = (sptc_window_offset_[w + 1] > sptc_window_offset_[w]);
+        int n_blocks = b1 - b0;
+        if (n_blocks <= tc_base_chunk) {
+            // Tier 1: 整窗单 CTA
+            tc_chunk_win.push_back(w);
+            tc_chunk_beg.push_back(b0);
+            tc_chunk_end.push_back(b1);
+            tc_chunk_atomic.push_back(has_sptc ? 1 : 0);
+            continue;
+        }
+        // Tier 2: straggler 大窗分片, atomic 写回
+        int chunk = tc_straggler_chunk;
+        int n_chunks = (n_blocks + chunk - 1) / chunk;
+        for (int b = b0; b < b1; b += chunk) {
+            tc_chunk_win.push_back(w);
+            tc_chunk_beg.push_back(b);
+            tc_chunk_end.push_back(b + chunk < b1 ? b + chunk : b1);
+            tc_chunk_atomic.push_back((n_chunks > 1 || has_sptc) ? 1 : 0);
+        }
+    }
+    int num_tc_chunks = (int)tc_chunk_win.size();
+    printf("[TR.cpp] TC chunks: %d (blocks: %d, CHUNK=%d, straggler=%d)\n",
+           num_tc_chunks, num_tc_blocks, tc_base_chunk, tc_straggler_chunk);
+
+    // ====================================================================
+    // 2.7 SPTC 窗口内分块 (Tier1 整窗单 CTA + Tier2 大窗分片)
+    //     (flat chunking 实验已证伪: 跨窗口 flush 写回 + atomic 退化,
+    //      恢复窗口粒度, 每窗单 CTA 整窗 RC 累加 + 单次写回)
+    //     sptc_chunk_atomic[c]: 1=窗口含 TC 双流写, 需 atomicAdd
+    // ====================================================================
+    // 2.7.0 每块输出行号表 (kernel flush_rc 用; 窗口版下每块行号=窗口首行)
+    std::vector<int> sptc_block_row((size_t)num_sptc_blocks, 0);
+    {
+        const int* sw = sptc_window_offset_;
+        for (int w = 0; w < num_windows; ++w) {
+            for (int b = sw[w]; b < sw[w + 1]; ++b)
+                sptc_block_row[(size_t)b] = w * window_size;
+        }
+    }
+
+    const int sptc_base_chunk = compute_chunk_size(num_windows, num_sptc_blocks);
+    const int sptc_straggler_chunk = 64;
+    std::vector<int> sptc_chunk_win, sptc_chunk_beg, sptc_chunk_end;
+    std::vector<uint8_t> sptc_chunk_atomic;
+    sptc_chunk_win.reserve(num_windows + num_sptc_blocks / sptc_base_chunk + 16);
+    sptc_chunk_beg.reserve(sptc_chunk_win.capacity());
+    sptc_chunk_end.reserve(sptc_chunk_win.capacity());
+    sptc_chunk_atomic.reserve(sptc_chunk_win.capacity());
+    for (int w = 0; w < num_windows; ++w) {
+        int b0 = sptc_window_offset_[w];
+        int b1 = sptc_window_offset_[w + 1];
+        if (b0 >= b1) continue;
+        bool has_tc = (tc_window_offset_[w + 1] > tc_window_offset_[w]);
+        int n_blocks = b1 - b0;
+        if (n_blocks <= sptc_base_chunk) {
+            // Tier 1：整窗单 CTA
+            sptc_chunk_win.push_back(w);
+            sptc_chunk_beg.push_back(b0);
+            sptc_chunk_end.push_back(b1);
+            sptc_chunk_atomic.push_back(has_tc ? 1 : 0);
+            continue;
+        }
+        // Tier 2: straggler 大窗分片
+        int chunk = sptc_straggler_chunk;
+        int n_chunks = (n_blocks + chunk - 1) / chunk;
+        for (int b = b0; b < b1; b += chunk) {
+            sptc_chunk_win.push_back(w);
+            sptc_chunk_beg.push_back(b);
+            sptc_chunk_end.push_back(b + chunk < b1 ? b + chunk : b1);
+            sptc_chunk_atomic.push_back((n_chunks > 1 || has_tc) ? 1 : 0);
+        }
+    }
+    int num_sptc_chunks = (int)sptc_chunk_win.size();
+    printf("[TR.cpp] SPTC chunks: %d (blocks: %d, CHUNK=%d, straggler=%d)\n",
+           num_sptc_chunks, num_sptc_blocks, sptc_base_chunk, sptc_straggler_chunk);
+
+    // ====================================================================
     // 3. 分配 GPU 内存
     // ====================================================================
-    int *d_sptc_window_offset, *d_sptc_col_old;
+    int *d_sptc_chunk_win, *d_sptc_chunk_beg, *d_sptc_chunk_end;
+    uint8_t *d_sptc_chunk_atomic;
+    int *d_sptc_block_row;             // [num_sptc_blocks] 每块输出行首
     half *d_sptc_value;
     uint32_t *d_sptc_packed_meta;
-    int *d_tc_window_offset, *d_tc_offset, *d_tc_col_old;
-    uint8_t *d_tc_local_id;
-    half *d_tc_value;
+    int *d_sptc_col_old;
+    int *d_tc_chunk_win, *d_tc_chunk_beg, *d_tc_chunk_end;
+    uint8_t *d_tc_chunk_atomic;
+    int *d_tc_col_old;
+    half *d_tc_value_dense;
     half *d_rhs_matrix;
-    float *d_output_tc, *d_output_sptc;
+    float *d_output;
+    // 对齐16的倍数
+    int mOri_padded = num_windows * window_size;
 
-    cuda_malloc_or_dummy(&d_sptc_window_offset, sptc_window_offset.numel());
+    cuda_malloc_or_dummy(&d_sptc_chunk_win, (int64_t)num_sptc_chunks);
+    cuda_malloc_or_dummy(&d_sptc_chunk_beg, (int64_t)num_sptc_chunks);
+    cuda_malloc_or_dummy(&d_sptc_chunk_end, (int64_t)num_sptc_chunks);
+    cuda_malloc_or_dummy(&d_sptc_chunk_atomic, (int64_t)num_sptc_chunks);
+    cuda_malloc_or_dummy(&d_sptc_block_row, (int64_t)num_sptc_blocks);
     cuda_malloc_or_dummy(&d_sptc_value, sptc_value.numel());
     cuda_malloc_or_dummy(&d_sptc_packed_meta, num_packed_meta);
     cuda_malloc_or_dummy(&d_sptc_col_old, sptc_col_old.numel());
-    cuda_malloc_or_dummy(&d_tc_window_offset, tc_window_offset.numel());
-    cuda_malloc_or_dummy(&d_tc_offset, tc_offset.numel());
-    cuda_malloc_or_dummy(&d_tc_local_id, tc_local_id.numel());
-    cuda_malloc_or_dummy(&d_tc_col_old, tc_col_old.numel());
-    cuda_malloc_or_dummy(&d_tc_value, tc_value.numel());
+    cuda_malloc_or_dummy(&d_tc_chunk_win, (int64_t)num_tc_chunks);
+    cuda_malloc_or_dummy(&d_tc_chunk_beg, (int64_t)num_tc_chunks);
+    cuda_malloc_or_dummy(&d_tc_chunk_end, (int64_t)num_tc_chunks);
+    cuda_malloc_or_dummy(&d_tc_chunk_atomic, (int64_t)num_tc_chunks);
+    cuda_malloc_or_dummy(&d_tc_col_old, (int64_t)num_tc_blocks * 16);
+    cuda_malloc_or_dummy(&d_tc_value_dense, (int64_t)num_tc_blocks * 256);
     cuda_malloc_or_dummy(&d_rhs_matrix, (int64_t)kOri * dimN);
-    cuda_malloc_or_dummy(&d_output_tc, (int64_t)mOri * dimN);
-    cuda_malloc_or_dummy(&d_output_sptc, (int64_t)mOri * dimN);
+    cuda_malloc_or_dummy(&d_output, (int64_t)mOri_padded * dimN);
 
     // ====================================================================
     // 4. 拷贝数据到 GPU
     // ====================================================================
-    cuda_copy_h2d_if_needed(d_sptc_window_offset, sptc_window_offset_, sptc_window_offset.numel());
+    auto h2d_start = std::chrono::high_resolution_clock::now();
+    cuda_copy_h2d_if_needed(d_sptc_chunk_win, sptc_chunk_win.data(), (int64_t)num_sptc_chunks);
+    cuda_copy_h2d_if_needed(d_sptc_chunk_beg, sptc_chunk_beg.data(), (int64_t)num_sptc_chunks);
+    cuda_copy_h2d_if_needed(d_sptc_chunk_end, sptc_chunk_end.data(), (int64_t)num_sptc_chunks);
+    cuda_copy_h2d_if_needed(d_sptc_chunk_atomic, sptc_chunk_atomic.data(), (int64_t)num_sptc_chunks);
+    cuda_copy_h2d_if_needed(d_sptc_block_row, sptc_block_row.data(), (int64_t)num_sptc_blocks);
     cuda_copy_h2d_if_needed(d_sptc_value, sptc_value_, sptc_value.numel());
-    cuda_copy_h2d_if_needed(d_sptc_col_old, sptc_col_old_, sptc_col_old.numel());
-    cuda_copy_h2d_if_needed(d_tc_window_offset, tc_window_offset_, tc_window_offset.numel());
-    cuda_copy_h2d_if_needed(d_tc_offset, tc_offset_, tc_offset.numel());
-    cuda_copy_h2d_if_needed(d_tc_local_id, tc_local_id_, tc_local_id.numel());
-    cuda_copy_h2d_if_needed(d_tc_col_old, tc_col_old_, tc_col_old.numel());
-    cuda_copy_h2d_if_needed(d_tc_value, tc_value_, tc_value.numel());
-    cuda_copy_h2d_if_needed(d_rhs_matrix, rhs_matrix_, (int64_t)kOri * dimN);
+    cuda_copy_h2d_if_needed(d_sptc_col_old, sptc_col_old_clean.data(), sptc_col_old.numel());
+    cuda_copy_h2d_if_needed(d_tc_chunk_win, tc_chunk_win.data(), (int64_t)num_tc_chunks);
+    cuda_copy_h2d_if_needed(d_tc_chunk_beg, tc_chunk_beg.data(), (int64_t)num_tc_chunks);
+    cuda_copy_h2d_if_needed(d_tc_chunk_end, tc_chunk_end.data(), (int64_t)num_tc_chunks);
+    cuda_copy_h2d_if_needed(d_tc_chunk_atomic, tc_chunk_atomic.data(), (int64_t)num_tc_chunks);
+    cuda_copy_h2d_if_needed(d_tc_col_old, tc_col_old_pad_vec.data(), (int64_t)num_tc_blocks * 16);
+    cuda_copy_h2d_if_needed(d_tc_value_dense, tc_value_dense_vec.data(), (int64_t)num_tc_blocks * 256);
+    // rhs_matrix 可能来自 CPU 或 GPU, 按来源选择拷贝方向
+    if ((int64_t)kOri * dimN > 0) {
+        cudaMemcpyKind kind = rhs_matrix.is_cuda()
+                                  ? cudaMemcpyDeviceToDevice
+                                  : cudaMemcpyHostToDevice;
+        checkCuda(cudaMemcpy(d_rhs_matrix, rhs_matrix_,
+                             (int64_t)kOri * dimN * sizeof(half), kind));
+    }
 
     // 压缩后的元数据 (需要从 vector 拷贝)
     if (num_packed_meta > 0) {
         checkCuda(cudaMemcpy(d_sptc_packed_meta, sptc_packed_meta_vec.data(),
                    num_packed_meta * sizeof(uint32_t), cudaMemcpyHostToDevice));
     }
+    auto h2d_end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> h2d_elapsed = h2d_end - h2d_start;
+    printf("[TR.cpp] H2D copy: %.4f ms\n", h2d_elapsed.count() * 1000.0);
 
     // ====================================================================
     // 5. 启动 CUDA 内核
     // ====================================================================
     float spmm_ms_avg = tr_spmm_forward(
-        d_sptc_window_offset,
+        d_sptc_chunk_win,
+        d_sptc_chunk_beg,
+        d_sptc_chunk_end,
+        d_sptc_chunk_atomic,
+        d_sptc_block_row,
         d_sptc_value,
         d_sptc_packed_meta,
         d_sptc_col_old,
-        d_tc_window_offset,
-        d_tc_offset,
-        d_tc_local_id,
+        d_tc_chunk_win,
+        d_tc_chunk_beg,
+        d_tc_chunk_end,
+        d_tc_chunk_atomic,
+        d_tc_value_dense,
         d_tc_col_old,
-        d_tc_value,
         d_rhs_matrix,
-        d_output_tc,
-        d_output_sptc,
+        d_output,
         num_windows,
         window_size,
         dimN,
         mOri,
         kOri,
         num_sptc_blocks,
+        num_sptc_chunks,
         num_tc_blocks,
+        num_tc_chunks,
         dense_threshold,
-        epoches);
+        epoches,
+        mode,
+        warmup);
 
     // ====================================================================
     // 6. 拷贝结果回 CPU
     // ====================================================================
-    auto output_matrix = torch::empty({mOri, dimN}, torch::kFloat32).to(torch::kCPU);
+    auto output_matrix = torch::empty({mOri_padded, dimN}, torch::kFloat32).to(torch::kCPU);
     float* output_ptr = output_matrix.data_ptr<float>();
 
-    checkCuda(cudaMemcpy(output_ptr, d_output_tc,
-               (int64_t)mOri * dimN * sizeof(float), cudaMemcpyDeviceToHost));
+    checkCuda(cudaMemcpy(output_ptr, d_output,
+               (int64_t)mOri_padded * dimN * sizeof(float), cudaMemcpyDeviceToHost));
 
     // ====================================================================
     // 7. 释放 GPU 内存
     // ====================================================================
-    cudaFree(d_sptc_window_offset);
+    cudaFree(d_sptc_chunk_win);
+    cudaFree(d_sptc_chunk_beg);
+    cudaFree(d_sptc_chunk_end);
+    cudaFree(d_sptc_chunk_atomic);
+    cudaFree(d_sptc_block_row);
     cudaFree(d_sptc_value);
     cudaFree(d_sptc_packed_meta);
     cudaFree(d_sptc_col_old);
-    cudaFree(d_tc_window_offset);
-    cudaFree(d_tc_offset);
-    cudaFree(d_tc_local_id);
+    cudaFree(d_tc_chunk_win);
+    cudaFree(d_tc_chunk_beg);
+    cudaFree(d_tc_chunk_end);
+    cudaFree(d_tc_chunk_atomic);
     cudaFree(d_tc_col_old);
-    cudaFree(d_tc_value);
+    cudaFree(d_tc_value_dense);
     cudaFree(d_rhs_matrix);
-    cudaFree(d_output_tc);
-    cudaFree(d_output_sptc);
+    cudaFree(d_output);
     cudaDeviceSynchronize();
 
-    return {output_matrix, torch::tensor(spmm_ms_avg)};
+    return {output_matrix.narrow(0, 0, mOri), torch::tensor(spmm_ms_avg)};
 }
 
 
@@ -411,6 +615,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("num_tc_blocks"),
           py::arg("dense_threshold"),
           py::arg("epoches"),
+          py::arg("mode") = 0,
+          py::arg("warmup") = 50,
           R"pbdoc(
 对分块后的 TC/SPTC 数据执行 GPU 矩阵乘运算.
 
