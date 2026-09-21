@@ -21,8 +21,13 @@
 
 #include <omp.h>
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <iostream>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -73,6 +78,35 @@ struct Win_tc {
     std::vector<double> value;
 };
 
+constexpr int kBlockRows = 16;
+
+static inline void materialize_column_rows(
+    const WinColumn& col,
+    std::array<double, kBlockRows>& row_values)
+{
+    row_values.fill(0.0);
+    if (col.col_id < 0 || col.col_start == nullptr) return;
+
+    for (auto* p = col.col_start; p < col.col_end; ++p) {
+        row_values[p->row] = p->val;
+    }
+}
+
+template <typename T>
+static torch::Tensor vector_to_torch_tensor(
+    std::vector<T>&& src,
+    torch::ScalarType dtype)
+{
+    if (src.empty()) {
+        return torch::empty({0}, torch::TensorOptions().dtype(dtype));
+    }
+    auto data = std::make_shared<std::vector<T>>(std::move(src));
+    return torch::from_blob(
+        data->data(),
+        {static_cast<int64_t>(data->size())},
+        [data](void*) mutable { data.reset(); },
+        torch::TensorOptions().dtype(dtype));
+}
 
 
 
@@ -92,7 +126,6 @@ struct Win_tc {
 // 列 ID 为 -1 表示虚拟全0列.
 // ============================================================================
 static void match_window_2to4(
-    int win_rows,
     std::vector<WinColumn>& columns,
     int dense_threshold,
     int t_max,
@@ -106,14 +139,16 @@ static void match_window_2to4(
 
     // ================================================================
     // 步骤 2: 细粒度滑动视窗匹配 (1:2 Pairs)
-    //
+    //每一列只向后匹配 SEARCH_WINDOW 个列
     // 找不到匹配 → 列 ID 压入 local_dense_pool, fine_fb++
     // ================================================================
     const int SEARCH_WINDOW = 32;
 
-    std::vector<bool> matched(n, false);
+    std::vector<uint8_t> matched(n, 0);
     std::vector<Unit> units;
+    units.reserve((n + 1) / 2);
     std::vector<WinColumn> local_dense_pool;  // 窗口局部 Dense Pool (列 ID)
+    local_dense_pool.reserve(n);
 
     // 循环非零列
     for (int i = 0; i < n; ++i) {
@@ -156,7 +191,7 @@ static void match_window_2to4(
     const int GROUP_SEARCH_WINDOW = 1024;
 
     int np = (int)units.size();
-    std::vector<bool> unit_used(np, false);
+    std::vector<uint8_t> unit_used(np, 0);
 
     for (int i = 0; i < np; ++i) {
         if (unit_used[i]) continue;
@@ -234,30 +269,28 @@ static void data_format(
     // 连续 8 个 unit 组成一个 16x16 的 Block
     int num_sptc_blocks = (total_units + 7) / 8;
     sptc_data.window_offset = num_sptc_blocks; // 暂时只记录当前窗口的 Block 数量
+    sptc_data.col_old.reserve(num_sptc_blocks * 16);
+    sptc_data.value.reserve(num_sptc_blocks * kBlockRows * 4 * 2);
+    sptc_data.metadata.reserve(num_sptc_blocks * kBlockRows * 4 * 2);
 
     // 构建对齐后的 padded_units 缓存，不足 8 倍数的部分末尾填充全零的空 unit
     std::vector<Unit> padded_units = sptc_flat;
+    padded_units.resize(num_sptc_blocks * 8);
     Unit empty_unit;
     empty_unit.col1 = {-1, 0, 0, nullptr, nullptr};
     empty_unit.col2 = {-1, 0, 0, nullptr, nullptr};
     empty_unit.G1 = 0;
     empty_unit.G2 = 0;
-    while (padded_units.size() < num_sptc_blocks * 8) {
-        padded_units.push_back(empty_unit);
-    }
-
-    // 极其高效的单列指定行权重值查找 lambda
-    // 因为在输入前，nz_list 已经按 col 优先、row 升序排过序，所以这个线性查找极快
-    auto get_val = [](const WinColumn& col, int row) -> double {
-        if (col.col_id == -1 || col.col_start == nullptr) return 0.0;
-        for (auto* p = col.col_start; p < col.col_end; ++p) {
-            if (p->row == row) return p->val;
-        }
-        return 0.0;
-    };
+    std::fill(padded_units.begin() + total_units, padded_units.end(), empty_unit);
 
     // 按 Block 维度开始打包
     for (int b = 0; b < num_sptc_blocks; ++b) {
+        std::array<std::array<double, kBlockRows>, 16> block_rows;
+        for (int u = 0; u < 8; ++u) {
+            materialize_column_rows(padded_units[b * 8 + u].col1, block_rows[u * 2]);
+            materialize_column_rows(padded_units[b * 8 + u].col2, block_rows[u * 2 + 1]);
+        }
+
         // 【1.1 原始列索引 col_old 填充】
         // 一个 block 由 8 个 Unit 组成，对应 16 个原始列。填充的空列自然填入 -1。
         for (int u = 0; u < 8; ++u) {
@@ -269,17 +302,12 @@ static void data_format(
         for (int r = 0; r < 16; ++r) {
             // 每连续 2 个 unit（即 4 列）组成一个 2:4 的 Group，一个 block 含有 4 个 Group
             for (int g = 0; g < 4; ++g) {
-                const auto& col_a1 = padded_units[b * 8 + g * 2].col1;
-                const auto& col_a2 = padded_units[b * 8 + g * 2].col2;
-                const auto& col_b1 = padded_units[b * 8 + g * 2 + 1].col1;
-                const auto& col_b2 = padded_units[b * 8 + g * 2 + 1].col2;
-
                 // 抓取该 Group 内 4 个位置对应的真实浮点权重
                 double vals[4] = {
-                    get_val(col_a1, r),
-                    get_val(col_a2, r),
-                    get_val(col_b1, r),
-                    get_val(col_b2, r)
+                    block_rows[g * 4][r],
+                    block_rows[g * 4 + 1][r],
+                    block_rows[g * 4 + 2][r],
+                    block_rows[g * 4 + 3][r]
                 };
 
                 // 统计该 4 元组中的非零元数量并记录相对索引位置
@@ -338,6 +366,11 @@ static void data_format(
         // 由于在构建 out_tc_flat 时天然是 dense_threshold 的倍数，故无需考虑边界补齐
         int num_tc_blocks = tc_flat.size() / dense_threshold;
         tc_data.window_offset = num_tc_blocks;
+        tc_data.col_old.reserve(num_tc_blocks * dense_threshold);
+        tc_data.tc_offset.reserve(num_tc_blocks);
+        tc_data.value.reserve(tc_flat.size() * kBlockRows);
+        tc_data.tc_local_id.reserve(tc_flat.size() * kBlockRows);
+        std::vector<std::array<double, kBlockRows>> tc_block_rows(dense_threshold);
 
         for (int b = 0; b < num_tc_blocks; ++b) {
             int col_start_idx = b * dense_threshold;
@@ -345,6 +378,7 @@ static void data_format(
             // 【2.1 写入当前稠密块的原始列索引】
             for (int c = 0; c < dense_threshold; ++c) {
                 tc_data.col_old.push_back(tc_flat[col_start_idx + c].col_id);
+                materialize_column_rows(tc_flat[col_start_idx + c], tc_block_rows[c]);
             }
 
             int block_nnz = 0; // 局部非零元计数器
@@ -352,22 +386,10 @@ static void data_format(
             // 【2.2 行优先（Row-Major）扫描提取非零元数据及局部编码】
             for (int r = 0; r < 16; ++r) {
                 for (int c = 0; c < dense_threshold; ++c) {
-                    const auto& col = tc_flat[col_start_idx + c];
-                    
-                    double val = 0.0;
-                    bool found = false;
-                    if (col.col_start != nullptr) {
-                        for (auto* p = col.col_start; p < col.col_end; ++p) {
-                            if (p->row == r) {
-                                val = p->val;
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
+                    double val = tc_block_rows[c][r];
 
                     // 发现非零权重，记录到 ME-TCF 中
-                    if (found && val != 0.0) {
+                    if (val != 0.0) {
                         tc_data.value.push_back(val);
                         // 8-bit 完美存储 16x16 局部位置索引: row * 16 + local_col
                         uint8_t local_id = static_cast<uint8_t>(r * 16 + c);
@@ -421,7 +443,7 @@ static void run_2to4_matching(
     for (int win = 0; win < mtx.num_windows; ++win) {
         int row_start = mtx.window_offset[win];
         int row_end   = mtx.window_offset[win + 1];
-        int win_rows  = row_end - row_start;
+        if (row_start == row_end) continue;
 
         // 关键重排：按照“列索引优先”对当前窗口内的非零元进行排序！
         // 如果列索引相同，则按行索引从小到大排。这样同一列的元素在内存中就会彻底连续。
@@ -434,7 +456,7 @@ static void run_2to4_matching(
 
         std::vector<WinColumn> columns;
         uint16_t vec = 0;
-        columns.reserve(512);
+        columns.reserve(row_end - row_start);
         int r;
         for(int l = row_start; l < row_end; l = r) {
             for(r = l; r < row_end && list[r].col == list[l].col; ++r) {
@@ -454,7 +476,7 @@ static void run_2to4_matching(
         std::vector<Unit> sptc_flat;
         std::vector<WinColumn> tc_flat;
 
-        match_window_2to4(win_rows, columns, dense_threshold, t_max,
+        match_window_2to4(columns, dense_threshold, t_max,
                           sptc_flat, tc_flat);
 
 
@@ -473,8 +495,33 @@ static void run_2to4_matching(
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
 
+    size_t total_sptc_values = 0;
+    size_t total_sptc_metadata = 0;
+    size_t total_sptc_cols = 0;
+    size_t total_tc_offsets = 1;
+    size_t total_tc_local_ids = 0;
+    size_t total_tc_cols = 0;
+    size_t total_tc_values = 0;
+    for (int win = 0; win < mtx.num_windows; ++win) {
+        total_sptc_values += res_sptc[win].value.size();
+        total_sptc_metadata += res_sptc[win].metadata.size();
+        total_sptc_cols += res_sptc[win].col_old.size();
+        total_tc_offsets += res_tc[win].tc_offset.size();
+        total_tc_local_ids += res_tc[win].tc_local_id.size();
+        total_tc_cols += res_tc[win].col_old.size();
+        total_tc_values += res_tc[win].value.size();
+    }
 
     // 前缀和（CSR指针格式）初始位注入
+    global_sptc_window_offset.reserve(mtx.num_windows + 1);
+    global_tc_window_offset.reserve(mtx.num_windows + 1);
+    global_tc_offset.reserve(total_tc_offsets);
+    global_sptc_value.reserve(total_sptc_values);
+    global_sptc_metadata.reserve(total_sptc_metadata);
+    global_sptc_col_old.reserve(total_sptc_cols);
+    global_tc_local_id.reserve(total_tc_local_ids);
+    global_tc_col_old.reserve(total_tc_cols);
+    global_tc_value.reserve(total_tc_values);
     global_sptc_window_offset.push_back(0);
     global_tc_window_offset.push_back(0);
     global_tc_offset.push_back(0);
@@ -625,37 +672,20 @@ py::dict match_2to4_py(
         global_tc_window_offset, global_tc_offset, global_tc_local_id, global_tc_col_old, global_tc_value
     );
 
-
-    // 【核心转换】利用深拷贝模板构建通用的 C++ vector -> Torch Tensor 转换器
-    auto to_torch_tensor = [](void* data, size_t size, torch::ScalarType dtype) {
-        // 特殊防御：处理空矩阵（例如某些矩阵极稠密，完全没有 SPTC 数据；或者极稀疏完全没有 TC 块）
-        if (size == 0) {
-            return torch::empty({0}, torch::TensorOptions().dtype(dtype));
-        }
-        // A. 建立影子 View（零拷贝，但生命周期不安全）
-        auto temp_tensor = torch::from_blob(data, {static_cast<int64_t>(size)}, torch::TensorOptions().dtype(dtype));
-        // B. 申请独立安全的 PyTorch 显存/内存块
-        auto safe_tensor = torch::empty_like(temp_tensor);
-        // C. 深拷贝数据（防止 C++ 向量销毁后出现悬挂野指针崩溃）
-        safe_tensor.copy_(temp_tensor);
-        return safe_tensor;
-    };
-
-
     py::dict result;
 
     // ---- 转换并打包 SPTC Tensor 队列 ----
-    result["sptc_window_offset"]   = to_torch_tensor(global_sptc_window_offset.data(), global_sptc_window_offset.size(), torch::kInt32);
-    result["sptc_value"]           = to_torch_tensor(global_sptc_value.data(), global_sptc_value.size(), torch::kFloat64); // double 对应 Float64
-    result["sptc_metadata"]        = to_torch_tensor(global_sptc_metadata.data(), global_sptc_metadata.size(), torch::kInt32);
-    result["sptc_col_old"]         = to_torch_tensor(global_sptc_col_old.data(), global_sptc_col_old.size(), torch::kInt32);
+    result["sptc_window_offset"]   = vector_to_torch_tensor(std::move(global_sptc_window_offset), torch::kInt32);
+    result["sptc_value"]           = vector_to_torch_tensor(std::move(global_sptc_value), torch::kFloat64); // double 对应 Float64
+    result["sptc_metadata"]        = vector_to_torch_tensor(std::move(global_sptc_metadata), torch::kInt32);
+    result["sptc_col_old"]         = vector_to_torch_tensor(std::move(global_sptc_col_old), torch::kInt32);
 
     // ---- 转换并打包 TC ME-TCF Tensor 队列 ----
-    result["tc_window_offset"]     = to_torch_tensor(global_tc_window_offset.data(), global_tc_window_offset.size(), torch::kInt32);
-    result["tc_offset"]            = to_torch_tensor(global_tc_offset.data(), global_tc_offset.size(), torch::kInt32);
-    result["tc_local_id"]          = to_torch_tensor(global_tc_local_id.data(), global_tc_local_id.size(), torch::kUInt8); // uint8_t 对应 Byte/UInt8
-    result["tc_col_old"]           = to_torch_tensor(global_tc_col_old.data(), global_tc_col_old.size(), torch::kInt32);
-    result["tc_value"]             = to_torch_tensor(global_tc_value.data(), global_tc_value.size(), torch::kFloat64);
+    result["tc_window_offset"]     = vector_to_torch_tensor(std::move(global_tc_window_offset), torch::kInt32);
+    result["tc_offset"]            = vector_to_torch_tensor(std::move(global_tc_offset), torch::kInt32);
+    result["tc_local_id"]          = vector_to_torch_tensor(std::move(global_tc_local_id), torch::kUInt8); // uint8_t 对应 Byte/UInt8
+    result["tc_col_old"]           = vector_to_torch_tensor(std::move(global_tc_col_old), torch::kInt32);
+    result["tc_value"]             = vector_to_torch_tensor(std::move(global_tc_value), torch::kFloat64);
 
     // 自动释放 mtx 堆空间
     free(mtx->window_offset);

@@ -1,0 +1,158 @@
+/root/DR_SPMM_ablation/spmm.py:105: DeprecationWarning: The default value for `spmatrix` is changing to `False` in v1.20.
+             That means the default return type will be a sparse array.
+             Unless you use * instead of @, ** for matrix power, or you depend
+             on 2D shapes from e.g. `A.sum(axis=0)` it may not matter to you.
+             See the spmatrix to sparray migration guide for details.
+             https://docs.scipy.org/doc/scipy/reference/sparse.migration_to_sparray.html
+             
+  mat = mmread(filepath)
+Elapsed time: 0.0540908 seconds
+[TR.cpp] SPTC metadata compression: 34.7019 ms
+[TR.cpp] TC dense-tile build: 0.0202 ms
+[TR.cpp] TC chunks: 47 (blocks: 47, CHUNK=64)
+[TR.cpp] SPTC chunks: 20933 (blocks: 71823, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:     17.060 ms total,  avg   0.3412 ms/iter
+  SPTC 流:   17.369 ms total,  avg   0.3474 ms/iter
+  耗时比 (TC/SPTC): 0.98×
+  耗时比 (SPTC/TC): 1.02×
+  实际总耗时:       17.378 ms (avg 0.3476 ms/iter)
+Elapsed time: 0.151972 seconds
+[TR.cpp] SPTC metadata compression: 118.6791 ms
+[TR.cpp] TC dense-tile build: 0.0003 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64)
+[TR.cpp] SPTC chunks: 118097 (blocks: 240477, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:      0.136 ms total,  avg   0.0027 ms/iter
+  SPTC 流:   85.486 ms total,  avg   1.7097 ms/iter
+  耗时比 (TC/SPTC): 0.00×
+  耗时比 (SPTC/TC): 627.68×
+  实际总耗时:       85.507 ms (avg 1.7101 ms/iter)
+Elapsed time: 0.0853598 seconds
+[TR.cpp] SPTC metadata compression: 106.4476 ms
+[TR.cpp] TC dense-tile build: 0.0003 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64)
+[TR.cpp] SPTC chunks: 106932 (blocks: 212542, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:      0.126 ms total,  avg   0.0025 ms/iter
+  SPTC 流:   76.439 ms total,  avg   1.5288 ms/iter
+  耗时比 (TC/SPTC): 0.00×
+  耗时比 (SPTC/TC): 606.88×
+  实际总耗时:       76.448 ms (avg 1.5290 ms/iter)
+Elapsed time: 0.220134 seconds
+[TR.cpp] SPTC metadata compression: 185.0772 ms
+[TR.cpp] TC dense-tile build: 0.0001 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64)
+[TR.cpp] SPTC chunks: 196133 (blocks: 392554, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:      0.124 ms total,  avg   0.0025 ms/iter
+  SPTC 流:  140.670 ms total,  avg   2.8134 ms/iter
+  耗时比 (TC/SPTC): 0.00×
+  耗时比 (SPTC/TC): 1137.07×
+  实际总耗时:       140.680 ms (avg 2.8136 ms/iter)
+Elapsed time: 0.0580767 seconds
+[TR.cpp] SPTC metadata compression: 15.0804 ms
+[TR.cpp] TC dense-tile build: 1.8842 ms
+[TR.cpp] TC chunks: 278 (blocks: 7373, CHUNK=64)
+[TR.cpp] SPTC chunks: 724 (blocks: 37773, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:      4.299 ms total,  avg   0.0860 ms/iter
+  SPTC 流:    5.197 ms total,  avg   0.1039 ms/iter
+  耗时比 (TC/SPTC): 0.83×
+  耗时比 (SPTC/TC): 1.21×
+  实际总耗时:       5.210 ms (avg 0.1042 ms/iter)
+Elapsed time: 1.71657 seconds
+[TR.cpp] SPTC metadata compression: 1012.6962 ms
+[TR.cpp] TC dense-tile build: 96.8101 ms
+[TR.cpp] TC chunks: 8300 (blocks: 271499, CHUNK=64)
+[TR.cpp] SPTC chunks: 43993 (blocks: 2544805, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:    165.533 ms total,  avg   3.3107 ms/iter
+  SPTC 流:  168.091 ms total,  avg   3.3618 ms/iter
+  耗时比 (TC/SPTC): 0.98×
+  耗时比 (SPTC/TC): 1.02×
+  实际总耗时:       168.101 ms (avg 3.3620 ms/iter)
+Elapsed time: 2.22214 seconds
+[TR.cpp] SPTC metadata compression: 1289.1937 ms
+[TR.cpp] TC dense-tile build: 70.1430 ms
+[TR.cpp] TC chunks: 6353 (blocks: 157839, CHUNK=64)
+[TR.cpp] SPTC chunks: 60753 (blocks: 3400639, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:     72.582 ms total,  avg   1.4516 ms/iter
+  SPTC 流:  337.547 ms total,  avg   6.7509 ms/iter
+  耗时比 (TC/SPTC): 0.22×
+  耗时比 (SPTC/TC): 4.65×
+  实际总耗时:       337.561 ms (avg 6.7512 ms/iter)
+Elapsed time: 0.0916 seconds
+[批量模式] 共 8 个矩阵, dimN=128, epoches=50
+======================================================================
+
+[1/8] DD
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/DD/DD.mtx (格式: .mtx)
+  [DD] shape=(334925, 334925), nnz=1686092
+  [DD] 分块耗时: 0.1760s
+  [DD] GPU SpMM: 0.3476 ms
+
+[2/8] OVCAR-8H
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/OVCAR-8H/OVCAR-8H.mtx (格式: .mtx)
+  [OVCAR-8H] shape=(1889542, 1889542), nnz=3946402
+  [OVCAR-8H] 分块耗时: 0.4933s
+  [OVCAR-8H] GPU SpMM: 1.7101 ms
+
+[3/8] Yeast
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/Yeast/Yeast.mtx (格式: .mtx)
+  [Yeast] shape=(1710902, 1710902), nnz=3636546
+  [Yeast] 分块耗时: 0.3755s
+  [Yeast] GPU SpMM: 1.5290 ms
+
+[4/8] YeastH
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/YeastH/YeastH.mtx (格式: .mtx)
+  [YeastH] shape=(3138114, 3138114), nnz=6487230
+  [YeastH] 分块耗时: 0.7803s
+  [YeastH] GPU SpMM: 2.8136 ms
+
+[5/8] ddi
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/ddi/ddi.mtx (格式: .mtx)
+  [ddi] shape=(4267, 4267), nnz=2140089
+  [ddi] 分块耗时: 0.0873s
+  [ddi] GPU SpMM: 0.1042 ms
+
+[6/8] protein
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/protein/protein.mtx (格式: .mtx)
+  [protein] shape=(132534, 132534), nnz=79255038
+  [protein] 分块耗时: 5.0869s
+  [protein] GPU SpMM: 3.3620 ms
+
+[7/8] reddit
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/reddit/reddit.mtx (格式: .mtx)
+  [reddit] shape=(232965, 232965), nnz=114848857
+  [reddit] 分块耗时: 6.8621s
+  [reddit] GPU SpMM: 6.7512 ms
+
+[8/8] web-BerkStan
+--------------------------------------------------
+[加载] /root/autodl-tmp/real_matrices/web-BerkStan/web-BerkStan.mtx (格式: .mtx)
+  [web-BerkStan] shape=(685230, 685230), nnz=7600595
+  [web-BerkStan] 分块耗时: 0.4456s
+  [web-BerkStan] GPU SpMM: 1.3522 ms
+
+======================================================================
+[批量完成] 成功: 8, 失败: 0, 总计: 8
+  CSV 已保存: result/results_DR_no-chunk_v2_128.csv
+[TR.cpp] SPTC metadata compression: 49.9264 ms
+[TR.cpp] TC dense-tile build: 15.4791 ms
+[TR.cpp] TC chunks: 16870 (blocks: 52733, CHUNK=64)
+[TR.cpp] SPTC chunks: 42288 (blocks: 132275, CHUNK=64)
+[TR-SPMM 双流均衡诊断]  epoches=50 mode=Full ablation=no-chunk
+  TC 流:     66.770 ms total,  avg   1.3354 ms/iter
+  SPTC 流:   67.602 ms total,  avg   1.3520 ms/iter
+  耗时比 (TC/SPTC): 0.99×
+  耗时比 (SPTC/TC): 1.01×
+  实际总耗时:       67.612 ms (avg 1.3522 ms/iter)

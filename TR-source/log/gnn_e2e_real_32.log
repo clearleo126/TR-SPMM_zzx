@@ -1,0 +1,288 @@
+nohup: ignoring input
+共 8 个矩阵, methods=['tr', 'mp', 'libra'], dimN=32, n_epoch=2
+/root/gnn_e2e.py:92: DeprecationWarning: The default value for `spmatrix` is changing to `False` in v1.20.
+             That means the default return type will be a sparse array.
+             Unless you use * instead of @, ** for matrix power, or you depend
+             on 2D shapes from e.g. `A.sum(axis=0)` it may not matter to you.
+             See the spmatrix to sparray migration guide for details.
+             https://docs.scipy.org/doc/scipy/reference/sparse.migration_to_sparray.html
+             
+  mat = mmread(str(path))
+=== DD (334925x334925, nnz=1686092, load=0.15s) ===
+Elapsed time: 0.061332 seconds
+[TR.cpp] SPTC metadata compression: 28.9697 ms
+[TR.cpp] TC dense-tile build: 0.0192 ms
+[TR.cpp] TC chunks: 47 (blocks: 47, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 20933 (blocks: 71823, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 7.3925 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.012 ms total,  avg   0.0123 ms/iter
+  SPTC 流:    0.082 ms total,  avg   0.0819 ms/iter
+  耗时比 (TC/SPTC): 0.15×
+  耗时比 (SPTC/TC): 6.67×
+  实际总耗时:       0.090 ms (avg 0.0904 ms/iter)
+[TR.cpp] SPTC metadata compression: 27.9708 ms
+[TR.cpp] TC dense-tile build: 0.0076 ms
+[TR.cpp] TC chunks: 47 (blocks: 47, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 20933 (blocks: 71823, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 7.1839 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.082 ms total,  avg   0.0410 ms/iter
+  SPTC 流:    0.179 ms total,  avg   0.0895 ms/iter
+  耗时比 (TC/SPTC): 0.46×
+  耗时比 (SPTC/TC): 2.19×
+  实际总耗时:       0.187 ms (avg 0.0937 ms/iter)
+[OK] DD tr: prep=0.272s 2ep=0.187ms e2e=0.417s (1.3s)
+[OK] DD mp: prep=0.812s 2ep=0.185ms e2e=0.958s (1.9s)
+Elapsed time: 0.248453 seconds
+tensor(37801, dtype=torch.int32)
+tcu: 518269;   cuda: 1167823
+DD Block time: 0.3859 seconds
+[OK] DD libra: prep=0.886s 2ep=0.887ms e2e=1.032s (1.0s)
+=== OVCAR-8H (1889542x1889542, nnz=3946402, load=0.23s) ===
+Elapsed time: 0.196191 seconds
+[TR.cpp] SPTC metadata compression: 97.9183 ms
+[TR.cpp] TC dense-tile build: 0.0003 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 118097 (blocks: 240477, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 34.7668 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.010 ms total,  avg   0.0102 ms/iter
+  SPTC 流:    0.512 ms total,  avg   0.5121 ms/iter
+  耗时比 (TC/SPTC): 0.02×
+  耗时比 (SPTC/TC): 50.00×
+  实际总耗时:       0.526 ms (avg 0.5263 ms/iter)
+[TR.cpp] SPTC metadata compression: 98.5705 ms
+[TR.cpp] TC dense-tile build: 0.0002 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 118097 (blocks: 240477, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 32.8760 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.013 ms total,  avg   0.0067 ms/iter
+  SPTC 流:    1.007 ms total,  avg   0.5034 ms/iter
+  耗时比 (TC/SPTC): 0.01×
+  耗时比 (SPTC/TC): 75.63×
+  实际总耗时:       1.018 ms (avg 0.5089 ms/iter)
+[OK] OVCAR-8H tr: prep=0.944s 2ep=1.018ms e2e=1.175s (4.0s)
+[OK] OVCAR-8H mp: prep=1.654s 2ep=0.994ms e2e=1.885s (5.2s)
+Elapsed time: 1.40186 seconds
+tensor(86344, dtype=torch.int32)
+tcu: 338453;   cuda: 3607949
+OVCAR-8H Block time: 2.0992 seconds
+[OK] OVCAR-8H libra: prep=3.937s 2ep=4.107ms e2e=4.172s (4.2s)
+=== Yeast (1710902x1710902, nnz=3636546, load=0.19s) ===
+Elapsed time: 0.113226 seconds
+[TR.cpp] SPTC metadata compression: 107.1674 ms
+[TR.cpp] TC dense-tile build: 0.0002 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 106932 (blocks: 212542, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 34.8475 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.007 ms total,  avg   0.0072 ms/iter
+  SPTC 流:    0.452 ms total,  avg   0.4524 ms/iter
+  耗时比 (TC/SPTC): 0.02×
+  耗时比 (SPTC/TC): 63.11×
+  实际总耗时:       0.462 ms (avg 0.4618 ms/iter)
+[TR.cpp] SPTC metadata compression: 83.5713 ms
+[TR.cpp] TC dense-tile build: 0.0001 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 106932 (blocks: 212542, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 29.4586 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.014 ms total,  avg   0.0072 ms/iter
+  SPTC 流:    0.899 ms total,  avg   0.4495 ms/iter
+  耗时比 (TC/SPTC): 0.02×
+  耗时比 (SPTC/TC): 62.71×
+  实际总耗时:       0.908 ms (avg 0.4541 ms/iter)
+[OK] Yeast tr: prep=0.810s 2ep=0.908ms e2e=0.998s (3.6s)
+[OK] Yeast mp: prep=1.738s 2ep=0.894ms e2e=1.927s (4.8s)
+Elapsed time: 1.22482 seconds
+tensor(78951, dtype=torch.int32)
+tcu: 312958;   cuda: 3323588
+Yeast Block time: 1.7551 seconds
+[OK] Yeast libra: prep=3.160s 2ep=3.823ms e2e=3.351s (3.4s)
+=== YeastH (3138114x3138114, nnz=6487230, load=0.39s) ===
+Elapsed time: 0.233995 seconds
+[TR.cpp] SPTC metadata compression: 193.6189 ms
+[TR.cpp] TC dense-tile build: 0.0001 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 196133 (blocks: 392554, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 93.3433 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.008 ms total,  avg   0.0082 ms/iter
+  SPTC 流:    0.838 ms total,  avg   0.8376 ms/iter
+  耗时比 (TC/SPTC): 0.01×
+  耗时比 (SPTC/TC): 102.24×
+  实际总耗时:       0.848 ms (avg 0.8480 ms/iter)
+[TR.cpp] SPTC metadata compression: 157.3261 ms
+[TR.cpp] TC dense-tile build: 0.0001 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 196133 (blocks: 392554, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 53.7758 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.014 ms total,  avg   0.0072 ms/iter
+  SPTC 流:    1.659 ms total,  avg   0.8294 ms/iter
+  耗时比 (TC/SPTC): 0.01×
+  耗时比 (SPTC/TC): 115.71×
+  实际总耗时:       1.673 ms (avg 0.8365 ms/iter)
+[OK] YeastH tr: prep=1.615s 2ep=1.673ms e2e=2.005s (6.7s)
+[OK] YeastH mp: prep=3.174s 2ep=1.643ms e2e=3.564s (8.5s)
+Elapsed time: 2.20428 seconds
+tensor(154112, dtype=torch.int32)
+tcu: 611278;   cuda: 5875952
+YeastH Block time: 3.1904 seconds
+[OK] YeastH libra: prep=5.995s 2ep=6.828ms e2e=6.391s (6.4s)
+=== ddi (4267x4267, nnz=2140089, load=0.10s) ===
+Elapsed time: 0.0969418 seconds
+[TR.cpp] SPTC metadata compression: 14.8184 ms
+[TR.cpp] TC dense-tile build: 1.7760 ms
+[TR.cpp] TC chunks: 234 (blocks: 7373, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 724 (blocks: 37773, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 2.5530 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.048 ms total,  avg   0.0481 ms/iter
+  SPTC 流:    0.042 ms total,  avg   0.0420 ms/iter
+  耗时比 (TC/SPTC): 1.15×
+  耗时比 (SPTC/TC): 0.87×
+  实际总耗时:       0.055 ms (avg 0.0553 ms/iter)
+[TR.cpp] SPTC metadata compression: 14.0679 ms
+[TR.cpp] TC dense-tile build: 1.3340 ms
+[TR.cpp] TC chunks: 234 (blocks: 7373, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 724 (blocks: 37773, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 2.4363 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.088 ms total,  avg   0.0440 ms/iter
+  SPTC 流:    0.078 ms total,  avg   0.0389 ms/iter
+  耗时比 (TC/SPTC): 1.13×
+  耗时比 (SPTC/TC): 0.88×
+  实际总耗时:       0.096 ms (avg 0.0481 ms/iter)
+[OK] ddi tr: prep=0.176s 2ep=0.096ms e2e=0.280s (0.2s)
+[OK] ddi mp: prep=0.809s 2ep=0.149ms e2e=0.914s (1.3s)
+Elapsed time: 0.115848 seconds
+tensor(37674, dtype=torch.int32)
+tcu: 1131101;   cuda: 1008988
+ddi Block time: 0.1279 seconds
+[OK] ddi libra: prep=0.563s 2ep=0.172ms e2e=0.667s (0.6s)
+=== protein (132534x132534, nnz=79255038, load=6.81s) ===
+Elapsed time: 1.565 seconds
+[TR.cpp] SPTC metadata compression: 1040.7140 ms
+[TR.cpp] TC dense-tile build: 114.5066 ms
+[TR.cpp] TC chunks: 6584 (blocks: 271499, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 43993 (blocks: 2544805, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 187.4191 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.299 ms total,  avg   0.2990 ms/iter
+  SPTC 流:    1.416 ms total,  avg   1.4162 ms/iter
+  耗时比 (TC/SPTC): 0.21×
+  耗时比 (SPTC/TC): 4.74×
+  实际总耗时:       1.425 ms (avg 1.4254 ms/iter)
+[TR.cpp] SPTC metadata compression: 1061.7678 ms
+[TR.cpp] TC dense-tile build: 122.7739 ms
+[TR.cpp] TC chunks: 6584 (blocks: 271499, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 43993 (blocks: 2544805, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 176.7472 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      1.641 ms total,  avg   0.8207 ms/iter
+  SPTC 流:    2.754 ms total,  avg   1.3768 ms/iter
+  耗时比 (TC/SPTC): 0.60×
+  耗时比 (SPTC/TC): 1.68×
+  实际总耗时:       2.763 ms (avg 1.3814 ms/iter)
+[OK] protein tr: prep=7.445s 2ep=2.763ms e2e=14.262s (10.3s)
+[OK] protein mp: prep=31.717s 2ep=4.155ms e2e=38.535s (46.4s)
+Elapsed time: 6.4892 seconds
+tensor(683671, dtype=torch.int32)
+tcu: 22943904;   cuda: 56311134
+protein Block time: 7.1838 seconds
+[OK] protein libra: prep=33.194s 2ep=10.604ms e2e=40.019s (33.6s)
+=== reddit (232965x232965, nnz=114848857, load=9.77s) ===
+Elapsed time: 2.48871 seconds
+[TR.cpp] SPTC metadata compression: 1391.4581 ms
+[TR.cpp] TC dense-tile build: 100.6096 ms
+[TR.cpp] TC chunks: 5524 (blocks: 157839, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 60753 (blocks: 3400639, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 238.5323 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.271 ms total,  avg   0.2714 ms/iter
+  SPTC 流:    1.825 ms total,  avg   1.8248 ms/iter
+  耗时比 (TC/SPTC): 0.15×
+  耗时比 (SPTC/TC): 6.72×
+  实际总耗时:       1.835 ms (avg 1.8349 ms/iter)
+[TR.cpp] SPTC metadata compression: 1752.8332 ms
+[TR.cpp] TC dense-tile build: 86.7163 ms
+[TR.cpp] TC chunks: 5524 (blocks: 157839, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 60753 (blocks: 3400639, CHUNK=64, straggler=64)
+[TR.cpp] H2D copy: 448.1511 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      2.017 ms total,  avg   1.0086 ms/iter
+  SPTC 流:    3.604 ms total,  avg   1.8018 ms/iter
+  耗时比 (TC/SPTC): 0.56×
+  耗时比 (SPTC/TC): 1.79×
+  实际总耗时:       3.613 ms (avg 1.8064 ms/iter)
+[OK] reddit tr: prep=10.719s 2ep=3.613ms e2e=20.491s (15.2s)
+[OK] reddit mp: prep=46.651s 2ep=10.789ms e2e=56.430s (66.5s)
+Elapsed time: 13.219 seconds
+tensor(1281054, dtype=torch.int32)
+tcu: 47726913;   cuda: 67121944
+reddit Block time: 14.1831 seconds
+[OK] reddit libra: prep=54.290s 2ep=15.884ms e2e=64.075s (54.8s)
+=== web-BerkStan (685230x685230, nnz=7600595, load=0.43s) ===
+Elapsed time: 0.120923 seconds
+[TR.cpp] SPTC metadata compression: 57.6995 ms
+[TR.cpp] TC dense-tile build: 27.8886 ms
+[TR.cpp] TC chunks: 16870 (blocks: 52733, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 42288 (blocks: 132275, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 18.5469 ms
+[TR-SPMM 双流均衡诊断]  epoches=1 mode=Full
+  TC 流:      0.265 ms total,  avg   0.2652 ms/iter
+  SPTC 流:    0.451 ms total,  avg   0.4506 ms/iter
+  耗时比 (TC/SPTC): 0.59×
+  耗时比 (SPTC/TC): 1.70×
+  实际总耗时:       0.460 ms (avg 0.4598 ms/iter)
+[TR.cpp] SPTC metadata compression: 51.4160 ms
+[TR.cpp] TC dense-tile build: 16.3134 ms
+[TR.cpp] TC chunks: 16870 (blocks: 52733, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 42288 (blocks: 132275, CHUNK=32, straggler=64)
+[TR.cpp] H2D copy: 19.1535 ms
+[TR-SPMM 双流均衡诊断]  epoches=2 mode=Full
+  TC 流:      0.586 ms total,  avg   0.2929 ms/iter
+  SPTC 流:    0.843 ms total,  avg   0.4214 ms/iter
+  耗时比 (TC/SPTC): 0.70×
+  耗时比 (SPTC/TC): 1.44×
+  实际总耗时:       0.852 ms (avg 0.4260 ms/iter)
+[OK] web-BerkStan tr: prep=0.675s 2ep=0.852ms e2e=1.106s (2.1s)
+[OK] web-BerkStan mp: prep=3.731s 2ep=0.515ms e2e=4.162s (5.9s)
+Elapsed time: 0.526902 seconds
+tensor(152876, dtype=torch.int32)
+tcu: 5506806;   cuda: 2093789
+web-BerkStan Block time: 0.8554 seconds
+[OK] web-BerkStan libra: prep=2.682s 2ep=1.633ms e2e=3.114s (2.8s)
+
+===================================================================================================================
+dataset       rows     cols     nnz        method         load_s  prep_s   spmm_2ep_ms  kernel_ms  e2e_s  
+-------------------------------------------------------------------------------------------------------------------
+DD            334925   334925   1686092    tr             0.1454  0.2716   0.1874       0.0937     0.4172 
+DD            334925   334925   1686092    mp(iterative)  0.1454  0.8125   0.1851       0.0925     0.9581 
+DD            334925   334925   1686092    libra          0.1454  0.8856   0.8870       0.4435     1.0319 
+OVCAR-8H      1889542  1889542  3946402    tr             0.2303  0.9440   1.0178       0.5089     1.1753 
+OVCAR-8H      1889542  1889542  3946402    mp(adjacent)   0.2303  1.6535   0.9941       0.4970     1.8848 
+OVCAR-8H      1889542  1889542  3946402    libra          0.2303  3.9373   4.1072       2.0536     4.1717 
+Yeast         1710902  1710902  3636546    tr             0.1876  0.8095   0.9083       0.4541     0.9980 
+Yeast         1710902  1710902  3636546    mp(iterative)  0.1876  1.7384   0.8938       0.4469     1.9269 
+Yeast         1710902  1710902  3636546    libra          0.1876  3.1595   3.8228       1.9114     3.3509 
+YeastH        3138114  3138114  6487230    tr             0.3884  1.6152   1.6730       0.8365     2.0053 
+YeastH        3138114  3138114  6487230    mp(adjacent)   0.3884  3.1736   1.6429       0.8214     3.5636 
+YeastH        3138114  3138114  6487230    libra          0.3884  5.9954   6.8278       3.4139     6.3906 
+ddi           4267     4267     2140089    tr             0.1041  0.1759   0.0963       0.0481     0.2801 
+ddi           4267     4267     2140089    mp(iterative)  0.1041  0.8094   0.1489       0.0744     0.9137 
+ddi           4267     4267     2140089    libra          0.1041  0.5626   0.1722       0.0861     0.6669 
+protein       132534   132534   79255038   tr             6.8142  7.4451   2.7629       1.3814     14.2620
+protein       132534   132534   79255038   mp(adjacent)   6.8142  31.7168  4.1551       2.0775     38.5351
+protein       132534   132534   79255038   libra          6.8142  33.1942  10.6036      5.3018     40.0189
+reddit        232965   232965   114848857  tr             9.7684  10.7188  3.6127       1.8064     20.4908
+reddit        232965   232965   114848857  mp(adjacent)   9.7684  46.6505  10.7890      5.3945     56.4297
+reddit        232965   232965   114848857  libra          9.7684  54.2902  15.8840      7.9420     64.0745
+web-BerkStan  685230   685230   7600595    tr             0.4307  0.6746   0.8520       0.4260     1.1061 
+web-BerkStan  685230   685230   7600595    mp(adjacent)   0.4307  3.7311   0.5151       0.2575     4.1622 
+web-BerkStan  685230   685230   7600595    libra          0.4307  2.6821   1.6326       0.8163     3.1144 
+===================================================================================================================
+[完成] 成功 24/24 行 (CSV -> /root/DR_SPMM/result/gnn_e2e_real_32.csv), 表格见上方. e2e_s = load_s(公共mmread) + prep_s + 2轮/1000; MP prep 已用整段外部墙钟并剔除写盘 bin 耗时, method 列标注最优策略.

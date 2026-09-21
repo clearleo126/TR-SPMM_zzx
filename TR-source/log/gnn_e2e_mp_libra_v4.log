@@ -1,0 +1,80 @@
+nohup: ignoring input
+共 8 个矩阵, methods=['mp', 'libra'], dimN=128, n_epoch=2
+=== DD (334925x334925, nnz=843046, load=0.00s) ===
+[OK] DD mp: prep=0.792s init=1.539s 2ep=0.511ms e2e=2.332s (5.2s)
+Elapsed time: 0.264238 seconds
+tensor(37801, dtype=torch.int32)
+tcu: 518269;   cuda: 1167823
+DD Block time: 0.4776 seconds
+[OK] DD libra: prep=1.688s init=0.000s 2ep=2.098ms e2e=1.690s (2.3s)
+=== OVCAR-8H (1889542x1889542, nnz=1973201, load=0.00s) ===
+[OK] OVCAR-8H mp: prep=1.851s init=6.632s 2ep=2.764ms e2e=8.486s (18.5s)
+Elapsed time: 1.65948 seconds
+tensor(86344, dtype=torch.int32)
+tcu: 338453;   cuda: 3607949
+OVCAR-8H Block time: 2.9485 seconds
+[OK] OVCAR-8H libra: prep=6.893s init=0.000s 2ep=7.151ms e2e=6.900s (8.0s)
+=== Yeast (1710902x1710902, nnz=1818273, load=0.00s) ===
+[OK] Yeast mp: prep=1.301s init=6.147s 2ep=2.470ms e2e=7.451s (16.7s)
+Elapsed time: 1.41687 seconds
+tensor(78951, dtype=torch.int32)
+tcu: 312958;   cuda: 3323588
+Yeast Block time: 2.0647 seconds
+[OK] Yeast libra: prep=5.801s init=0.000s 2ep=6.599ms e2e=5.807s (6.7s)
+=== YeastH (3138114x3138114, nnz=3243615, load=0.00s) ===
+[OK] YeastH mp: prep=2.723s init=10.839s 2ep=4.576ms e2e=13.567s (30.8s)
+Elapsed time: 2.85181 seconds
+tensor(154112, dtype=torch.int32)
+tcu: 611278;   cuda: 5875952
+YeastH Block time: 4.7484 seconds
+[OK] YeastH libra: prep=11.372s init=0.000s 2ep=12.085ms e2e=11.384s (13.0s)
+=== ddi (4267x4267, nnz=1072178, load=0.00s) ===
+[OK] ddi mp: prep=0.818s init=0.276s 2ep=0.294ms e2e=1.094s (2.6s)
+Elapsed time: 0.125153 seconds
+tensor(37674, dtype=torch.int32)
+tcu: 1131101;   cuda: 1008988
+ddi Block time: 0.1389 seconds
+[OK] ddi libra: prep=0.639s init=0.000s 2ep=0.207ms e2e=0.640s (0.6s)
+=== protein (132534x132534, nnz=39693786, load=0.00s) ===
+[OK] protein mp: prep=26.957s init=8.084s 2ep=5.049ms e2e=35.046s (78.8s)
+Elapsed time: 5.68448 seconds
+tensor(683671, dtype=torch.int32)
+tcu: 22943904;   cuda: 56311134
+protein Block time: 6.4925 seconds
+[OK] protein libra: prep=33.821s init=0.000s 2ep=8.790ms e2e=33.829s (34.2s)
+=== reddit (232965x232965, nnz=57540911, load=0.00s) ===
+[OK] reddit mp: prep=43.941s init=11.838s 2ep=12.620ms e2e=55.792s (126.0s)
+Elapsed time: 12.5138 seconds
+tensor(1281054, dtype=torch.int32)
+tcu: 47726913;   cuda: 67121944
+reddit Block time: 13.4529 seconds
+[OK] reddit libra: prep=52.098s init=0.000s 2ep=12.512ms e2e=52.110s (52.7s)
+=== web-BerkStan (685230x685230, nnz=7600595, load=0.00s) ===
+[OK] web-BerkStan mp: prep=3.676s init=3.731s 2ep=1.175ms e2e=7.409s (15.8s)
+Elapsed time: 0.567634 seconds
+tensor(152876, dtype=torch.int32)
+tcu: 5506806;   cuda: 2093789
+web-BerkStan Block time: 0.9370 seconds
+[OK] web-BerkStan libra: prep=3.914s init=0.000s 2ep=3.388ms e2e=3.917s (4.2s)
+
+==================================================================================================================
+dataset       rows     cols     nnz       method         load_s  prep_s   spmm_2ep_ms  kernel_ms  e2e_s  
+------------------------------------------------------------------------------------------------------------------
+DD            334925   334925   843046    mp(iterative)  0.0000  0.7922   0.5107       0.2553     2.3322 
+DD            334925   334925   843046    libra          0.0000  1.6881   2.0984       1.0492     1.6902 
+OVCAR-8H      1889542  1889542  1973201   mp(iterative)  0.0000  1.8514   2.7641       1.3821     8.4862 
+OVCAR-8H      1889542  1889542  1973201   libra          0.0000  6.8933   7.1506       3.5753     6.9005 
+Yeast         1710902  1710902  1818273   mp(adjacent)   0.0000  1.3013   2.4697       1.2349     7.4508 
+Yeast         1710902  1710902  1818273   libra          0.0000  5.8007   6.5988       3.2994     5.8073 
+YeastH        3138114  3138114  3243615   mp(adjacent)   0.0000  2.7229   4.5761       2.2881     13.5668
+YeastH        3138114  3138114  3243615   libra          0.0000  11.3719  12.0852      6.0426     11.3840
+ddi           4267     4267     1072178   mp(iterative)  0.0000  0.8184   0.2936       0.1468     1.0942 
+ddi           4267     4267     1072178   libra          0.0000  0.6394   0.2070       0.1035     0.6396 
+protein       132534   132534   39693786  mp(iterative)  0.0000  26.9566  5.0489       2.5245     35.0455
+protein       132534   132534   39693786  libra          0.0000  33.8206  8.7896       4.3948     33.8294
+reddit        232965   232965   57540911  mp(iterative)  0.0000  43.9409  12.6204      6.3102     55.7921
+reddit        232965   232965   57540911  libra          0.0000  52.0980  12.5120      6.2560     52.1105
+web-BerkStan  685230   685230   7600595   mp(iterative)  0.0000  3.6763   1.1746       0.5873     7.4088 
+web-BerkStan  685230   685230   7600595   libra          0.0000  3.9139   3.3880       1.6940     3.9173 
+==================================================================================================================
+[完成] 成功 16/16 行 (CSV -> /root/DR_SPMM/result/gnn_e2e_real_128.csv), 表格见上方. e2e_s = load_s(公共mmread) + prep_s + 2轮/1000; MP prep 已用整段外部墙钟并剔除写盘 bin 耗时, method 列标注最优策略.

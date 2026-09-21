@@ -37,12 +37,13 @@ import torch
 # 项目路径配置
 # ====================================================================
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# print(PROJECT_ROOT)
 DATASETS_DIR = os.path.join(PROJECT_ROOT, "datasets")
 DGL_DATASETS_DIR = os.path.join(PROJECT_ROOT, "dgl_datasets")
 
 # 确保能 import C++ 模块
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "TR-source"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "TR-source", "SpMM"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM", "SpMM"))
 
 
 # ====================================================================
@@ -99,13 +100,15 @@ def load_matrix(filepath):
     if ext == ".npz":
         mat = _load_custom_npz(filepath)
     elif ext == ".mtx":
-        mm_rows, mm_cols, mm_entries, mm_format, mm_field, mm_symm = mminfo(filepath)
-        is_pattern = (mm_field == 'pattern')
+        # mm_rows, mm_cols, mm_entries, mm_format, mm_field, mm_symm = mminfo(filepath)
+        # is_pattern = (mm_field == 'pattern')
         mat = mmread(filepath)
-        if is_pattern and hasattr(mat, 'data'):
-            mat.data = np.ones(mat.nnz, dtype=np.float32)
+
         if isinstance(mat, np.ndarray):
             mat = sp.csr_matrix(mat)
+            
+        if hasattr(mat, 'sum_duplicates'):
+            mat.sum_duplicates()
     else:
         raise ValueError(f"不支持的格式: {ext}")
     if not sp.isspmatrix_csr(mat):
@@ -129,7 +132,7 @@ def matrix_to_csr_arrays(mat):
 # (SPTC 元数据压缩在 TR.cpp 中完成)
 # ====================================================================
 
-def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
+def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
     """
     将分块数据传入 GPU 做矩阵乘。
 
@@ -149,7 +152,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
     except ImportError:
         print("=" * 60)
         print("  错误: 导入 TR_SPMM 模块失败")
-        print("  请先编译: cd TR-source/SpMM/ && python setup_tr.py build_ext --inplace")
+        print("  请先编译: cd SpMM/ && python setup_tr.py build_ext --inplace")
         print("=" * 60)
         sys.exit(1)
 
@@ -189,9 +192,9 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
     B = torch.randn(K, dimN, dtype=torch.float16).contiguous()
 
     # ---- 调用 GPU 模块 (元数据压缩在 TR.cpp 中完成) ----
-    print(f"\n[GPU SpMM] M={M}, K={K}, N={dimN}")
-    print(f"  SPTC blocks: {num_sptc_blocks}, TC blocks: {num_tc_blocks}")
-    print(f"  Windows: {num_windows}")
+    # print(f"\n[GPU SpMM] M={M}, K={K}, N={dimN}")
+    # print(f"  SPTC blocks: {num_sptc_blocks}, TC blocks: {num_tc_blocks}")
+    # print(f"  Windows: {num_windows}")
 
     output, elapsed_ms = TR_SPMM.forward(
         # SPTC tensors (raw metadata, C++ 端压缩)
@@ -217,6 +220,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100):
         num_tc_blocks,
         dense_threshold,
         epoches,
+        mode,
     )
 
     return output, elapsed_ms.item()
@@ -231,6 +235,87 @@ def run_cpu_reference(mat, B_np, dimN):
     C_cpu = mat @ B_np  # [M, N] float32
     return C_cpu
 
+def find_preprocessed_matrices(batch_dir: str) -> list:
+    """
+    扫描预处理后的目录，返回 [(matrix_name, mtx_path), ...] 列表。
+    
+    期望目录结构:
+      batch_dir/
+      ├── ash85/ash85.mtx
+      ├── bcsstk01/bcsstk01.mtx
+      └── ...
+    """
+    results = []
+    if not os.path.isdir(batch_dir):
+        return results
+    for entry in sorted(os.listdir(batch_dir)):
+        subdir = os.path.join(batch_dir, entry)
+        if os.path.isdir(subdir):
+            mtx_path = os.path.join(subdir, entry + ".mtx")
+            if os.path.isfile(mtx_path):
+                results.append((entry, mtx_path))
+            else:
+                # 兼容：子目录内文件名与目录名不一致
+                candidates = glob.glob(os.path.join(subdir, "*.mtx"))
+                if candidates:
+                    name = os.path.splitext(os.path.basename(candidates[0]))[0]
+                    results.append((name, candidates[0]))
+    return results
+
+
+def benchmark_single_matrix(filepath, matrix_name, args, matching_utils):
+    """
+    对单个矩阵执行完整的 分块 + GPU SpMM 流程。
+    
+    返回 dict: {matrix_name, rows, cols, nnz, blocking_time_s, elapsed_ms, status}
+    失败时 status != "ok"，耗时字段为 None。
+    """
+    result = {
+        "matrix_name": matrix_name,
+        "rows": None,
+        "cols": None,
+        "nnz": None,
+        "blocking_time_s": None,
+        "elapsed_ms": None,
+        "status": "ok",
+    }
+    try:
+        # ---- 加载 ----
+        mat = load_matrix(filepath)
+        result["rows"] = mat.shape[0]
+        result["cols"] = mat.shape[1]
+        result["nnz"] = mat.nnz
+        print(f"  [{matrix_name}] shape={mat.shape}, nnz={mat.nnz}")
+
+        # ---- CSR ----
+        row_ptr, col_ind, values, rows, cols = matrix_to_csr_arrays(mat)
+
+        # ---- 分块 ----
+        t0 = time.perf_counter()
+        result_dict = matching_utils.match_2to4(
+            row_ptr, col_ind, values,
+            window_size=args.window,
+            dense_threshold=args.dense_threshold,
+            t_max=8,
+        )
+        blocking_time = time.perf_counter() - t0
+        result["blocking_time_s"] = round(blocking_time, 6)
+        print(f"  [{matrix_name}] 分块耗时: {blocking_time:.4f}s")
+
+        # ---- GPU SpMM ----
+        output, elapsed_ms = run_gpu_spmm(
+            result_dict, rows, cols,
+            dimN=args.dimN, epoches=args.epoches, mode=args.mode,
+        )
+        result["elapsed_ms"] = round(elapsed_ms, 4)
+        print(f"  [{matrix_name}] GPU SpMM: {elapsed_ms:.4f} ms")
+
+
+    except Exception as e:
+        result["status"] = f"error: {e}"
+        print(f"  [{matrix_name}] ❌ 失败: {e}")
+
+    return result
 
 # ====================================================================
 # 主流程
@@ -246,14 +331,20 @@ def main():
                         help="列出所有可用数据集")
     parser.add_argument("--dimN", type=int, default=128,
                         help="特征维度 N (默认 128)")
-    parser.add_argument("--epoches", type=int, default=10,
-                        help="Benchmark 迭代次数 (默认 10)")
+    parser.add_argument("--epoches", type=int, default=50,
+                        help="Benchmark 迭代次数 (默认 50)")
     parser.add_argument("--window", type=int, default=16,
                         help="窗口行数 (默认 16)")
     parser.add_argument("--dense_threshold", type=int, default=8,
                         help="TC 路由阈值 (默认 8)")
+    parser.add_argument("--mode", type=int, default=0,
+                        help="诊断模式: 0=Full(双流), 1=TC-only, 2=SPTC-only (默认 0)")
     parser.add_argument("--no-verify", action="store_true",
                         help="跳过 CPU 结果验证")
+    parser.add_argument("--batch-dir", type=str, default=None,
+                    help="预处理矩阵集根目录，遍历所有子目录中的 .mtx")
+    parser.add_argument("--csv", type=str, default=None,
+                    help="批量结果输出 CSV 路径（默认: <batch-dir>/benchmark_results.csv）")
     args = parser.parse_args()
 
     # ---- 导入 C++ 模块 ----
@@ -262,10 +353,67 @@ def main():
     except ImportError as e:
         print("=" * 60)
         print(f"  错误: 导入 matching_utils 失败 — {e}")
-        print("  请先编译: cd TR-source/ && "
+        print("  请先编译: cd SpMM/ && "
               "CXX=$CONDA_PREFIX/bin/g++ python setup_24matching.py build_ext --inplace")
         print("=" * 60)
         sys.exit(1)
+
+
+    # ================================================================
+    # 批量模式
+    # ================================================================
+    if args.batch_dir:
+        import csv
+
+        matrices = find_preprocessed_matrices(args.batch_dir)
+        if not matrices:
+            print(f"错误: 在 {args.batch_dir} 中未找到任何 .mtx 文件")
+            sys.exit(1)
+
+        print(f"[批量模式] 共 {len(matrices)} 个矩阵, "
+            f"dimN={args.dimN}, epoches={args.epoches}")
+        print("=" * 70)
+
+        all_results = []
+        for idx, (name, path) in enumerate(matrices):
+            print(f"\n[{idx+1}/{len(matrices)}] {name}")
+            print("-" * 50)
+            res = benchmark_single_matrix(path, name, args, matching_utils)
+            all_results.append(res)
+
+        # ---- 写 CSV ----
+        csv_path = args.csv or os.path.join(args.batch_dir, "benchmark_results.csv")
+        fieldnames = [
+            "matrix_name", "rows", "cols", "nnz",
+            "blocking_time_s", "elapsed_ms", "status",
+        ]
+        if not args.no_verify:
+            fieldnames.append("verify_pass_rate")
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(all_results)
+
+        # ---- 汇总 ----
+        ok_results = [r for r in all_results if r["status"] == "ok"]
+        fail_count = len(all_results) - len(ok_results)
+        print("\n" + "=" * 70)
+        print(f"[批量完成] 成功: {len(ok_results)}, 失败: {fail_count}, "
+            f"总计: {len(all_results)}")
+        # if ok_results:
+        #     avg_block = np.mean([r["blocking_time_s"] for r in ok_results])
+        #     avg_spmm = np.mean([r["elapsed_ms"] for r in ok_results])
+        #     med_spmm = np.median([r["elapsed_ms"] for r in ok_results])
+        #     print(f"  平均分块耗时: {avg_block:.4f} s")
+        #     print(f"  平均 GPU SpMM: {avg_spmm:.4f} ms")
+        #     print(f"  中位 GPU SpMM: {med_spmm:.4f} ms")
+        print(f"  CSV 已保存: {csv_path}")
+        return
+    # ================================================================
+    # 批量模式
+    # ================================================================
+
 
     # ---- 列出数据集 ----
     if args.list:
@@ -322,12 +470,40 @@ def main():
     num_tc = int(result_dict["tc_window_offset"][-1].item())
     print(f"  SPTC 块: {num_sptc}, TC 块: {num_tc}")
 
+    # ---- per-window 块分布统计 (straggler 分析) ----
+    try:
+        sptc_wo = result_dict["sptc_window_offset"].numpy()
+        tc_wo = result_dict["tc_window_offset"].numpy()
+        sptc_per_win = np.diff(sptc_wo)      # 每窗口 SPTC 块数
+        tc_per_win = np.diff(tc_wo)          # 每窗口 TC 块数
+
+        def dist_summary(name, arr):
+            if arr.size == 0 or arr.sum() == 0:
+                print(f"  [{name}] 无块")
+                return
+            arr = arr.astype(np.int64)
+            nz = arr[arr > 0]
+            print(f"  [{name}] 非空窗口数={nz.size}/{arr.size}, "
+                  f"均值={arr.mean():.2f}, "
+                  f"最大={arr.max()}, "
+                  f"P99={np.percentile(arr, 99):.0f}, "
+                  f"P90={np.percentile(arr, 90):.0f}, "
+                  f"中位={np.median(arr):.0f}")
+            # 最大窗口的贡献占比: 最重窗口块数 / 总块数
+            print(f"          最大窗口占比={arr.max() / max(arr.sum(), 1) * 100:.2f}%")
+
+        print("  [Per-Window 块分布]")
+        dist_summary("SPTC", sptc_per_win)
+        dist_summary("TC", tc_per_win)
+    except Exception as e:
+        print(f"  (per-window 统计失败: {e})")
+
     # ---- GPU 矩阵乘 ----
     dimN = args.dimN
     epoches = args.epoches
 
     output, elapsed_ms = run_gpu_spmm(
-        result_dict, rows, cols, dimN, epoches=epoches)
+        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode)
 
     print(f"\n[结果] GPU SpMM 平均耗时: {elapsed_ms:.4f} ms (over {epoches} iterations)")
     print(f"  输出形状: {list(output.shape)}")
