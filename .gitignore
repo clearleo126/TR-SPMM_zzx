@@ -24,6 +24,9 @@ baseline/mp/preprocessing/impl-adjacent-matching-2-4
 baseline/mp/preprocessing/impl-iterative-2-4
 baseline/mp/preprocessing/max_match-2-4
 
+# MP 官方预处理程序的运行时路径配置 (由 harness 动态生成, 指向 DR_REAL_DIR)
+/baseline/path.txt
+
 # 实验日志与性能剖析产物
 *.log
 *.ncu-rep

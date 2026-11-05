@@ -2,6 +2,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cusparse.h>
+#include <cstdlib>
 #include <fstream>
 #include <mma.h>
 // #include <sputnik/spmm/cuda_spmm.h>
@@ -837,10 +838,23 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 	auto options = torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA);
 	auto val = torch::ones({TCblocktile_id.size(0)}, options);
 	float *valuesA = val.data<float>();
+	// [port] 内核迭代次数: 官方为 EXE_TIME=2 (每次调用跑两遍取事件平均).
+	// 端到端链式调用里一次 SpMM 只应执行一遍 kernel, 与其余 baseline 的
+	// 调用边界一致; DTC_EXE_TIME 环境变量可覆盖, 缺省保持官方行为.
+	const int dtc_exe_time = []() {
+		const char* v = getenv("DTC_EXE_TIME");
+		return (v && v[0]) ? atoi(v) : EXE_TIME;
+	}();
+	// [port] 每次调用在 cwd 追加写计时 CSV, 会污染端到端计时窗口;
+	// DTC_LOG_CSV=0 关闭, 缺省保持官方行为.
+	const bool dtc_log_csv = []() {
+		const char* v = getenv("DTC_LOG_CSV");
+		return !(v && v[0] == '0');
+	}();
 	GpuTimer timer;
 	if (exeplan == "float_nonsplit") {
 		timer.Start();
-		for(int i = 0; i < EXE_TIME; i++) {
+		for(int i = 0; i < dtc_exe_time; i++) {
 		  spmm_forward_cuda_kernel_improved_ptx_1684_uint8_v1_with_value_double_buffer<<<grid, block>>>(
 																		Rowwindow_offset.data<int>(), 
 																		TCblocktile_id.data<uint8_t>(), 
@@ -857,7 +871,7 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 		timer.Stop();
 	} else if (exeplan == "float2_nonsplit") {
 		timer.Start();
-		for(int i = 0; i < EXE_TIME; i++) {
+		for(int i = 0; i < dtc_exe_time; i++) {
 		  spmm_forward_cuda_kernel_improved_ptx_1684_uint8_v1_with_value_double_buffer_float2<<<grid, block>>>(
 																		Rowwindow_offset.data<int>(), 
 																		TCblocktile_id.data<uint8_t>(), 
@@ -875,7 +889,7 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 	} else if (exeplan == "float2_split") {
 		timer.Start();
 		if (embedding_dim >= 64)
-		for(int i = 0; i < EXE_TIME; i++) {
+		for(int i = 0; i < dtc_exe_time; i++) {
 		  spmm_forward_cuda_kernel_improved_ptx_1684_uint8_v1_with_value_double_buffer_float2_split<<<grid_split, block_split>>>(
 																		Rowwindow_offset.data<int>(), 
 																		TCblocktile_id.data<uint8_t>(), 
@@ -892,7 +906,7 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 		timer.Stop();
 	} else if (exeplan == "float4_nonsplit") {
 		timer.Start();
-		for(int i = 0; i < EXE_TIME; i++) {
+		for(int i = 0; i < dtc_exe_time; i++) {
 		  spmm_forward_cuda_kernel_improved_ptx_1684_uint8_v1_with_value_double_buffer_float4<<<grid_float4, block_float4>>>(
 																		Rowwindow_offset.data<int>(), 
 																		TCblocktile_id.data<uint8_t>(), 
@@ -910,7 +924,7 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 	} else if (exeplan == "float4_split") {
 		timer.Start();
 		if (embedding_dim >= 128)
-		for(int i = 0; i < EXE_TIME; i++) {
+		for(int i = 0; i < dtc_exe_time; i++) {
 		  spmm_forward_cuda_kernel_improved_ptx_1684_uint8_v1_with_value_double_buffer_float4_split<<<grid_float4_split, block_float4_split>>>(
 																		Rowwindow_offset.data<int>(), 
 																		TCblocktile_id.data<uint8_t>(), 
@@ -929,13 +943,15 @@ std::vector<torch::Tensor> spmm_forward_improved_ptx_uint8_cuda(
 		std::cout << "Not supported exe plan!";
 		exit(-1);
 	}
-    float dtc_time = timer.Elapsed() / EXE_TIME;
+    float dtc_time = timer.Elapsed() / dtc_exe_time;
+	if (dtc_log_csv) {
 	std::ofstream res_file;
 	res_file.open("DTCSpMM_exe_time_and_throughput.csv", std::ios::app);
 	float spmm_flop = float(num_edges) * float(embedding_dim) * 2.0;
 	float DTC_SpMM_throughput_ = (float(spmm_flop * 1000.))/(dtc_time * 1000. * 1000. * 1000.);
 	res_file << "DTCSpMM:" << "," << dtc_time << "," << DTC_SpMM_throughput_ << ",";
 	res_file.close();
+	}
 	cudaError_t error = cudaGetLastError();
     if(error != cudaSuccess) {
         printf("CUDA error: %s\n", cudaGetErrorString(error));

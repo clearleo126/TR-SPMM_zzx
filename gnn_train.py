@@ -16,6 +16,9 @@ import argparse
 import csv
 import gc
 import os
+import re
+import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -28,7 +31,9 @@ import torch.nn.functional as F
 from scipy.io import mmread
 
 ROOT = Path(__file__).resolve().parent
-REAL_DIR = Path("/data1/datasets/real_matrices")
+# 数据根目录可迁移 (A100/Vast.ai 上用 DR_REAL_DIR 指向矩阵所在处).
+# MP 官方预处理产物也会写在该目录的 dataset_mp_processed/ 下.
+REAL_DIR = Path(os.environ.get("DR_REAL_DIR", "/data1/datasets/real_matrices"))
 TR_MAIN = ROOT / "TR-source"   # 主代码 (DR-SpMM 主实现, 23 参数 + 零拷贝 + 缓存)
 BASE_DIR = ROOT / "baseline"
 LIBRA_PKG = BASE_DIR / "libra"
@@ -59,6 +64,12 @@ TM = 16        # tc_min_cols
 # 这里关闭, 使三家 baseline 的调用边界一致; 需要复现官方 benchmark 行为时可覆盖.
 os.environ.setdefault("LIBRA_INNER_WARMUP", "0")
 os.environ.setdefault("LIBRA_EXTRA_PASS", "0")
+
+# DTC: 官方 kernel 每次调用内部跑 EXE_TIME=2 遍取事件平均, 且每次在 cwd
+# 追加写计时 CSV. 端到端链式调用中一次 SpMM 只应执行一遍 kernel, 与其余
+# baseline 的调用边界一致; CSV 写盘移出计时窗口. 复现官方行为可覆盖.
+os.environ.setdefault("DTC_EXE_TIME", "1")
+os.environ.setdefault("DTC_LOG_CSV", "0")
 
 _FWD = 0
 _BWD = 0
@@ -271,12 +282,26 @@ class LibraBackend:
 class MPBackend:
     """MP-SpMM: 官方 CLI 基准程序 -> pybind 封装 (baseline/mp/MP_SPMM_WRAP).
 
-    预处理产物复用 /data1/datasets/mp_processed_2-4/<name>_data.bin.
+    预处理默认现场执行官方 impl-iterative-2-4 (从 mtx 生成 <name>_data.bin),
+    五段计时 (read/pack/match/padding/unwrap) 全部计入 prep_s —— 与 TR/Libra
+    的口径一致, 也不再依赖外部预生成产物. DR_MP_PREP=reuse 可退回旧开发模式
+    (直接读 DR_MP_BIN_DIR 下既有 bin, 不计官方预处理).
     对称矩阵的 A^T == A, 共用同一份 packed (与 TR/Libra 的
     --assume-undirected 语义一致).
     """
     name = "mp"
-    MP_DIR = Path("/data1/datasets/mp_processed_2-4")
+    MP_DIR = Path(os.environ.get("DR_MP_BIN_DIR", "/data1/datasets/mp_processed_2-4"))
+    # 匹配策略: adjacent 与既有 e2e 结果同口径 (/data1 的 bin 即
+    # 0.Adjacent-matching 产物, md5 已验证可现场精确复现);
+    # DR_MP_MATCHING=iterative 可切换到 1.Iterative-matching.
+    MP_MATCHING = os.environ.get("DR_MP_MATCHING", "adjacent")
+    _MP_TOOLS = {
+        "adjacent": ("impl-adjacent-matching-2-4", "0.Adjacent-matching"),
+        "iterative": ("impl-iterative-2-4", "1.Iterative-matching"),
+    }
+    MP_PREP_BIN = MP_PKG / "preprocessing" / _MP_TOOLS[MP_MATCHING][0]
+    # 官方预处理的输出布局 (相对 dataset_path)
+    MP_OFFICIAL_SUB = Path("dataset_mp_processed/2-4") / _MP_TOOLS[MP_MATCHING][1]
 
     def __init__(self):
         self.prep_A_s = self.prep_AT_s = 0.0
@@ -319,15 +344,50 @@ class MPBackend:
         packed_t = torch.from_numpy(np.asarray(packed, dtype=np.uint32).view(np.int32).copy())
         return dict(off=off_t, a=a_t, meta=packed_t, col=col_t, rows=nr, cols=nc)
 
+    @staticmethod
+    def _official_prep(name, timeout=3600):
+        """现场执行 MP 官方预处理, 返回 (bin 路径, 耗时 s).
+
+        官方口径 = stderr 五段之和: read_matrix + pack_columns_into_units +
+        match_units + padding + unwrap_metadata. 程序按 cwd 相对路径读
+        ../../path.txt 取 dataset_path, 这里动态生成指向 REAL_DIR; 产物按
+        匹配策略写在 REAL_DIR/dataset_mp_processed/2-4/<策略目录>/<name>_data.bin.
+        """
+        binp = MPBackend.MP_PREP_BIN
+        if not binp.exists():
+            raise RuntimeError(
+                f"MP 官方预处理二进制缺失: {binp} "
+                "(在 baseline/mp/preprocessing/ 下编译, 见 build.sh; "
+                f"当前匹配策略 {MPBackend.MP_MATCHING})")
+        path_cfg = BASE_DIR / "path.txt"
+        path_cfg.write_text(f"dataset_path = {REAL_DIR}\n")
+        r = subprocess.run([str(binp), name], cwd=str(binp.parent),
+                           capture_output=True, text=True, timeout=timeout)
+        ts = [float(x) for x in re.findall(r"\[([0-9.]+) ms\]", r.stderr)]
+        out = REAL_DIR / MPBackend.MP_OFFICIAL_SUB / f"{name}_data.bin"
+        if r.returncode != 0 or not ts or not out.exists():
+            raise RuntimeError(
+                f"MP official preprocessing failed rc={r.returncode} "
+                f"stderr_tail={r.stderr[-400:]}")
+        print(f"    [mp-prep] {name}: official 5-stage total = "
+              f"{sum(ts) / 1e3:.3f}s", file=sys.stderr)
+        return out, sum(ts) / 1e3
+
     def preprocess(self, A, device, assume_undirected=False):
         if not self.dataset:
             raise RuntimeError("MPBackend needs dataset name")
+        mode = os.environ.get("DR_MP_PREP", "official")
+        if mode == "reuse":
+            # 旧开发模式: 只读既有 bin, prep 仅含读盘 + 元数据打包
+            p = self.MP_DIR / f"{self.dataset}_data.bin"
+            if not p.exists():
+                raise RuntimeError(f"missing MP preprocessed file {p}")
+            official_s = 0.0
+        else:
+            p, official_s = self._official_prep(self.dataset)
         t = time.perf_counter()
-        p = self.MP_DIR / f"{self.dataset}_data.bin"
-        if not p.exists():
-            raise RuntimeError(f"missing MP preprocessed file {p}")
         self._pa = self._prepare(p)
-        self.prep_A_s = time.perf_counter() - t
+        self.prep_A_s = official_s + (time.perf_counter() - t)
         self._m, self._k = A.shape
 
         t = time.perf_counter()
@@ -361,7 +421,124 @@ class MPBackend:
         return MPBackend._call(self._pat, dY, self._k, self._m)
 
 
-BACKENDS = {"ref": RefBackend, "tr": TRBackend, "libra": LibraBackend, "mp": MPBackend}
+class DTCBackend:
+    """DTC-SpMM (ASPLOS'24) 复现, 自 TR-SPMM_zzx/gnn_e2e.py 的 run_dtc 移植.
+
+    流程: TCA 行重排 (纯 CPU, datasketch; 耗时计入预处理, 大图上可达
+    数百秒) + DTCSpMM.preprocess_gpu (GPU 元数据构建) +
+    run_DTCSpMM dense-TC kernel.
+
+    口径说明:
+      * 官方 kernel 的 valuesA 恒为 1 (无权图 SpMM): 加权矩阵上按二值
+        邻接计算, 与旧图口径一致; 数值校验时用二值 A 做参考.
+      * kernel 输入输出为 fp32 (TF32 路径), 输出行在重排坐标系下,
+        用 reorder_id (new→old) 反置换回原始节点序以支持两层链式
+        前向与 A^T 反向; 反置换 kernel 也计入调用墙钟.
+      * TCA 重排随 nnz 平方级增长, 大矩阵上常见超时; DTC_PREP_TIMEOUT
+        (默认 3600 s, 0 = 不限时) 超时抛 TimeoutError, 由上层记 SKIP/TO.
+    """
+    name = "dtc"
+
+    def __init__(self):
+        self.prep_A_s = self.prep_AT_s = 0.0
+        self._pA = self._pAT = None
+        self._last_kernel_ms = float("nan")
+
+    @staticmethod
+    def _exeplan(dimN):
+        # kernel 内部按维度选择守卫: float4_split 需 dim>=128, float2_split >=64
+        if dimN >= 128:
+            return "float4_split"
+        if dimN >= 64:
+            return "float2_split"
+        return "float_nonsplit"
+
+    @staticmethod
+    def _build(A):
+        import DTCSpMM
+        from tr_csr_fp16 import tr_tca_reorder
+        rows, cols = A.shape
+        t0 = time.perf_counter()
+        new_ptr, new_idx, reorder_id = tr_tca_reorder.apply_tca_reorder(
+            A.indptr.astype(np.int32), A.indices.astype(np.int32),
+            rows, thres=16, verbose=False)
+        reorder_s = time.perf_counter() - t0
+        nnz = int(len(new_idx))
+        # [fix] 官方 DTC_dataset 会把行数补齐到 BLK_H=16 的倍数: kernel 每个
+        # window 固定写 16 行输出, 未补齐时末窗会越界写 2.5KB 到相邻显存
+        # (症状: 随分配布局而定的确定性乱值). indptr 追加空行, 输出再切片.
+        rows_pad = (rows + 15) // 16 * 16
+        if rows_pad > rows:
+            new_ptr = np.concatenate(
+                [new_ptr, np.full(rows_pad - rows, int(new_ptr[-1]),
+                                  dtype=np.int32)])
+        rp_t = torch.from_numpy(
+            np.ascontiguousarray(new_ptr, dtype=np.int32)).cuda()
+        ci_t = torch.from_numpy(
+            np.ascontiguousarray(new_idx, dtype=np.int32)).cuda()
+        bp = torch.zeros((rows_pad + 15) // 16, dtype=torch.int32,
+                         device="cuda")
+        ec = torch.zeros(nnz, dtype=torch.int32, device="cuda")
+        er = torch.zeros(nnz, dtype=torch.int32, device="cuda")
+        torch.cuda.synchronize()
+        t1 = time.perf_counter()
+        rw, trid, ttid, toff, sax, _ = DTCSpMM.preprocess_gpu(
+            ci_t, rp_t, rows_pad, 16, 8, bp, ec, er)
+        torch.cuda.synchronize()
+        prep = reorder_s + (time.perf_counter() - t1)
+        rid = torch.from_numpy(
+            np.ascontiguousarray(reorder_id, dtype=np.int64)).cuda()
+        return dict(rw=rw, ttid=ttid, toff=toff, sax=sax,
+                    rows=rows, rows_pad=rows_pad, nnz=nnz, rid=rid), prep
+
+    @staticmethod
+    def _run(p, X):
+        import DTCSpMM
+        Xf = X.detach().to(torch.float32).contiguous()
+        out, kms = DTCSpMM.run_DTCSpMM(
+            Xf, p["rw"], p["ttid"], p["toff"], p["sax"],
+            p["rows_pad"], p["nnz"], DTCBackend._exeplan(Xf.size(1)))
+        out = out[: p["rows"]]           # 去掉补齐的空行
+        # 输出行在重排坐标系 (rid[new]=old), scatter 回原始节点序:
+        # out_orig[rid[i]] = out_new[i] (index_select 是 gather, 方向相反)
+        out_orig = torch.zeros_like(out)
+        out_orig[p["rid"]] = out
+        return out_orig, float(kms.item())
+
+    def preprocess(self, A, device, assume_undirected=False):
+        timeout = float(os.environ.get("DTC_PREP_TIMEOUT", "3600"))
+
+        def _alarm(signum, frame):
+            raise TimeoutError(
+                f"DTC preprocessing exceeded DTC_PREP_TIMEOUT={timeout}s "
+                "(TCA 重排为主, 大图常见)")
+
+        old_handler = signal.signal(signal.SIGALRM, _alarm)
+        signal.setitimer(signal.ITIMER_REAL, timeout if timeout > 0 else 0)
+        try:
+            self._pA, prep = self._build(A)
+            self.prep_A_s = prep
+            if assume_undirected:
+                self._pAT, self.prep_AT_s = self._pA, 0.0
+            else:
+                self._pAT, self.prep_AT_s = self._build(A.T.tocsr())
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, old_handler)
+
+    def spmm_A(self, X):
+        out, kms = self._run(self._pA, X)
+        self._last_kernel_ms = kms
+        return out
+
+    def spmm_AT(self, dY):
+        out, kms = self._run(self._pAT, dY)
+        self._last_kernel_ms = kms
+        return out
+
+
+BACKENDS = {"ref": RefBackend, "tr": TRBackend, "libra": LibraBackend,
+            "mp": MPBackend, "dtc": DTCBackend}
 
 
 # =====================================================================
@@ -387,7 +564,13 @@ def discover(names=None):
 
 
 @torch.no_grad()
-def check_vs_ref(backend, A, device, dimn, tol_abs=1e-1, tol_rel=5e-3):
+def check_vs_ref(backend, A, device, dimn, binary=False,
+                 tol_abs=1e-1, tol_rel=5e-3):
+    # binary=True: DTC 官方 kernel 的 valuesA 恒为 1, 加权矩阵上按二值
+    # 邻接计算, 参考解须同样二值化.
+    if binary:
+        A = A.copy()
+        A.data = np.ones_like(A.data)
     n, k = A.shape
     X = torch.randn(k, dimn, device=device, dtype=torch.float32)
     Y_ref = torch.sparse.mm(_csr_to_torch_sparse(A, device), X)
@@ -419,7 +602,8 @@ def run_one(name, A, load_s, method, args, device):
     if args.check and method != "libra":
         # Libra: 官方 online pipeline 未提供数值校验接口 (其 mma fragment
         # 布局与输出映射不自洽), 仅用于性能对比, 故跳过数值检查.
-        ok, ea, eb = check_vs_ref(backend, A, device, args.dimN)
+        ok, ea, eb = check_vs_ref(backend, A, device, args.dimN,
+                                  binary=(method == "dtc"))
         print(f"  [check] {name} {method} fwd={ea:.3e} bwd={eb:.3e} "
               f"{'OK' if ok else 'FAIL'}", file=sys.stderr)
         if not ok:
@@ -474,7 +658,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--matrices", nargs="+", default=["ddi"])
     ap.add_argument("--methods", nargs="+", default=["ref", "tr", "libra"],
-                    choices=["ref", "tr", "libra", "mp"])
+                    choices=["ref", "tr", "libra", "mp", "dtc"])
     ap.add_argument("--dimN", type=int, default=DIM_N)
     ap.add_argument("--warmup", type=int, default=WARMUP)
     ap.add_argument("--epochs", type=int, default=EPOCHS)

@@ -333,21 +333,15 @@ def apply_tca_reorder(row_ptr, col_ind, num_nodes, thres=16, verbose=True):
     new_src_sorted = new_src_all[sort_idx]
     new_dst_sorted = new_dst_all[sort_idx]
 
+    # [fix] 原逐段搬运循环有缺陷: while 推进空行时用 new_row_ptr[cur_row]
+    # 覆盖刚写入的 new_row_ptr[cur_row+1], 把已计数的行度清零, 得到
+    # sum(diff)=0 的退化 CSR (下游 DTC 在其上会预处理出 0 个 TC 块).
+    # 改用 bincount + cumsum 直接重建.
+    new_col_ind = new_dst_sorted.astype(np.int32)
+    counts = np.bincount(new_src_sorted, minlength=num_nodes)
     new_row_ptr = np.zeros(num_nodes + 1, dtype=np.int32)
-    new_col_ind = np.zeros(num_nnz, dtype=np.int32)
-
-    for i in range(num_nnz):
-        new_col_ind[i] = new_dst_sorted[i]
-
-    cur_row = 0
-    for i in range(num_nnz):
-        while cur_row < new_src_sorted[i]:
-            new_row_ptr[cur_row + 1] = new_row_ptr[cur_row]
-            cur_row += 1
-        new_row_ptr[cur_row + 1] = i + 1
-    while cur_row < num_nodes:
-        new_row_ptr[cur_row + 1] = new_row_ptr[cur_row]
-        cur_row += 1
+    new_row_ptr[1:] = np.cumsum(counts)
+    assert int(new_row_ptr[-1]) == num_nnz
 
     t_end = time.time()
     if verbose:

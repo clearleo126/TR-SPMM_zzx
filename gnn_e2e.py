@@ -64,9 +64,7 @@ def _reset_libra_cache():
 
 def _kernel_time(method, backend):
     """Kernel time reported by the extension after the last call (ms/call)."""
-    if method == "tr":
-        return getattr(backend, "_last_kernel_ms", float("nan"))
-    if method == "libra":
+    if method in ("tr", "libra", "dtc"):
         return getattr(backend, "_last_kernel_ms", float("nan"))
     return float("nan")
 
@@ -119,7 +117,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--matrices", nargs="+", default=None)
     ap.add_argument("--methods", nargs="+", default=["tr", "mp", "libra"],
-                    choices=["tr", "mp", "libra"])
+                    choices=["tr", "mp", "libra", "dtc"])
     ap.add_argument("--dimN", type=int, default=DIM_N)
     ap.add_argument("--tag", type=str, default="128")
     ap.add_argument("--out", type=str, default=None)

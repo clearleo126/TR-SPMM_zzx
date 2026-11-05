@@ -131,6 +131,12 @@ SparseMatrix* read_matrix(const char* mtx_name, int& nonzero_block) {
     snprintf(mtx_path, sizeof(mtx_path), "%s/%s.mtx", dataset_dir, mtx_name);
     FILE* fp = fopen(mtx_path, "r");
     if (fp == NULL) {
+        // [port] 兼容 <name>/<name>.mtx 布局 (与 impl-iterative-2-4 一致)
+        snprintf(mtx_path, sizeof(mtx_path), "%s/%s/%s.mtx",
+                 dataset_dir, mtx_name, mtx_name);
+        fp = fopen(mtx_path, "r");
+    }
+    if (fp == NULL) {
         std::cerr << "Error: File " << mtx_path << " does not exist." << std::endl;
         exit(1);
     }
