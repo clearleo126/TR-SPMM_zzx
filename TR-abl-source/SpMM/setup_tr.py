@@ -15,7 +15,7 @@ setup(
                 'cxx': ['-O3'],
                 'nvcc': [
                     '-O3',
-                    '-gencode=arch=compute_89,code=sm_89',   # RTX 4090 (Ampere SM 8.9)
+                    '-gencode=arch=compute_80,code=sm_80',   # RTX 3090 (Ampere SM 8.0)
                     '-gencode=arch=compute_86,code=sm_86',   # RTX 3090 (Ampere SM 8.6)
                 ],
             },

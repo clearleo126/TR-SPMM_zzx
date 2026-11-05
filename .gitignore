@@ -1,32 +1,82 @@
 datasets/
 dgl_dataset/
-<<<<<<< HEAD
+data_gnn/
+matrices14/
+
+# Python 虚拟环境与缓存
 .venv/
 __pycache__/
 *.pyc
-build/
-*.so
-*.o
-.ninja_log
-.ninja_deps
-=======
 
-# 忽略所有 C/C++ 编译产物
+# C/C++ 编译产物
 *.o
 *.so
 *.a
 *.out
-
-# 忽略 Python 缓存和编译文件
-__pycache__/
-*.pyc
-
-# 忽略构建目录及其所有内容
+.ninja_log
+.ninja_deps
 build/
-TR-source/build/
 dataset_mp_processed/
+.build_shim/
 
-# 忽略 IDE 配置文件（可选）
-.vscode/
-.idea/
->>>>>>> upstream/main
+# baseline 预处理编译出的可执行文件
+baseline/mp/preprocessing/impl-adjacent-matching-2-4
+baseline/mp/preprocessing/impl-iterative-2-4
+baseline/mp/preprocessing/max_match-2-4
+
+# 实验日志与性能剖析产物
+*.log
+*.ncu-rep
+*.nsys-rep
+*.sqlite
+TR-source/result/
+TR-source/log/
+TR-abl-source/result/
+TR-abl-source/log/
+
+# 论文稿件不入库
+/main.tex
+
+# 旧实现备份 / 一次性修改前快照
+/archive_tr_source_dt8/
+
+# 根目录一次性调试、分析、验证脚本（结果已整理进 result/）
+/analyze_density_sweep.py
+/analyze_fused_vs_mp.py
+/bench_llm_gpu.py
+/bench_llm_libra.py
+/collect_mp_fix3.py
+/diag_libra.py
+/diag_libra_tc.py
+/eval_fused_rule.py
+/eval_fused_rule2.py
+/eval_fused_rule3.py
+/extract_fused_features.py
+/fused_ab_test.py
+/gen_llm_sparse.py
+/prep_new3.py
+/prof_epoch.py
+/run_full_fused.py
+/run_full_fused_ab.py
+/run_new3_dr.sh
+/run_new3_mp.sh
+/sweep_density_match.py
+/test_mp_wrap.py
+/verify_fused_out.py
+/verify_merge_ab.py
+/verify_merge_correct.py
+/windist_all.py
+/AGENT.md
+
+# 一次性输出图表
+/density_sweep.png
+/density_sweep_summary.csv
+/gpu_llm_3way.csv
+/gpu_llm_3way.png
+/gpu_llm_bigM.csv
+/gpu_llm_libra.csv
+/gpu_llm_sweep.csv
+/gpu_llm_sweep.png
+/gpu_llm_sweep_summary.csv
+/sweep_opt125m.csv
+/sweep_opt1p3b.csv

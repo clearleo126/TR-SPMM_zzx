@@ -1,0 +1,5 @@
+dataset,rows,cols,nnz,method,load_s,prep_A_s,prep_AT_s,warmup,epochs,avg_epoch_ms,fwd_spmm,bwd_spmm
+ddi,4267,4267,2140089,tr,0.2191,0.1988,0.1774,5,2,3.3283,2,2
+ddi,4267,4267,2140089,mp,0.2191,0.8467,0.1134,5,2,3.0824,2,2
+ogbn_arxiv,169343,169343,1166243,tr,0.2252,0.1826,0.1786,5,2,10.8808,2,2
+ogbn_arxiv,169343,169343,1166243,mp,,,,,,,,

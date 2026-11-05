@@ -41,9 +41,10 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASETS_DIR = os.path.join(PROJECT_ROOT, "datasets")
 DGL_DATASETS_DIR = os.path.join(PROJECT_ROOT, "dgl_datasets")
 
-# 确保能 import C++ 模块（消融目录自身编译的版本，勿指向主工程）
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM_ablation"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM_ablation", "SpMM"))
+# 确保能 import C++ 模块（本目录自身编译的版本，勿指向主工程）
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _THIS_DIR)
+sys.path.insert(0, os.path.join(_THIS_DIR, "SpMM"))
 
 
 # ====================================================================
@@ -182,7 +183,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0, abl
     # ---- TC 数据处理 ----
     num_tc_blocks = int(tc_window_offset[-1].item())
     # tc_col_old 每 block 有 dense_threshold 个列
-    dense_threshold = 8  # 默认值, 可从 col_old 推断
+    dense_threshold = 16  # 回退值; 正常由 tc_col_old 每块列数推断 (下行)
     if num_tc_blocks > 0:
         dense_threshold = tc_col_old.size(0) // num_tc_blocks
 
@@ -339,8 +340,8 @@ def main():
                         help="Benchmark 迭代次数 (默认 50)")
     parser.add_argument("--window", type=int, default=16,
                         help="窗口行数 (默认 16)")
-    parser.add_argument("--dense_threshold", type=int, default=8,
-                        help="TC 路由阈值 (默认 8)")
+    parser.add_argument("--dense_threshold", type=int, default=16,
+                        help="TC 残余列打包门槛 (8 或 16, 默认 16)")
     parser.add_argument("--mode", type=int, default=0,
                         help="诊断模式: 0=Full(双流), 1=TC-only, 2=SPTC-only (默认 0)")
     parser.add_argument("--ablation", type=int, default=0,

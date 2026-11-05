@@ -7,7 +7,7 @@ setup(
     ext_modules=[
         CppExtension(
             name='matching_utils',
-            sources=['./Block/block_matching_window_para_dr.cpp'],
+            sources=['./Block/block_matching_zhy.cpp'],
             extra_compile_args=['-O3', '-march=native', '-fopenmp'],
         ),
         CppExtension(

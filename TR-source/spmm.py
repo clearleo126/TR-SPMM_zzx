@@ -41,9 +41,10 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATASETS_DIR = os.path.join(PROJECT_ROOT, "datasets")
 DGL_DATASETS_DIR = os.path.join(PROJECT_ROOT, "dgl_datasets")
 
-# 确保能 import C++ 模块
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "DR_SPMM", "SpMM"))
+# 确保能 import C++ 模块（本目录自身编译的版本，勿指向主工程）
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _THIS_DIR)
+sys.path.insert(0, os.path.join(_THIS_DIR, "SpMM"))
 
 
 # ====================================================================
@@ -132,7 +133,7 @@ def matrix_to_csr_arrays(mat):
 # (SPTC 元数据压缩在 TR.cpp 中完成)
 # ====================================================================
 
-def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
+def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0, ablation=0, chunk=0):
     """
     将分块数据传入 GPU 做矩阵乘。
 
@@ -182,7 +183,7 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
     # ---- TC 数据处理 ----
     num_tc_blocks = int(tc_window_offset[-1].item())
     # tc_col_old 每 block 有 dense_threshold 个列
-    dense_threshold = 8  # 默认值, 可从 col_old 推断
+    dense_threshold = 16  # 回退值; 正常由 tc_col_old 每块列数推断 (下行)
     if num_tc_blocks > 0:
         dense_threshold = tc_col_old.size(0) // num_tc_blocks
 
@@ -221,6 +222,9 @@ def run_gpu_spmm(result_dict, num_rows, num_cols, dimN, epoches=100, mode=0):
         dense_threshold,
         epoches,
         mode,
+        10,          # warmup 迭代数
+        ablation,
+        chunk,       # E-chunk 扫描: 0=auto, -1=整窗单CTA, >0=固定 chunk
     )
 
     return output, elapsed_ms.item()
@@ -305,7 +309,8 @@ def benchmark_single_matrix(filepath, matrix_name, args, matching_utils):
         # ---- GPU SpMM ----
         output, elapsed_ms = run_gpu_spmm(
             result_dict, rows, cols,
-            dimN=args.dimN, epoches=args.epoches, mode=args.mode,
+            dimN=args.dimN, epoches=args.epoches, mode=args.mode, ablation=args.ablation,
+            chunk=args.chunk,
         )
         result["elapsed_ms"] = round(elapsed_ms, 4)
         print(f"  [{matrix_name}] GPU SpMM: {elapsed_ms:.4f} ms")
@@ -335,10 +340,17 @@ def main():
                         help="Benchmark 迭代次数 (默认 50)")
     parser.add_argument("--window", type=int, default=16,
                         help="窗口行数 (默认 16)")
-    parser.add_argument("--dense_threshold", type=int, default=8,
-                        help="TC 路由阈值 (默认 8)")
+    parser.add_argument("--dense_threshold", type=int, default=16,
+                        help="TC 残余列打包门槛 (8 或 16, 默认 16)")
     parser.add_argument("--mode", type=int, default=0,
                         help="诊断模式: 0=Full(双流), 1=TC-only, 2=SPTC-only (默认 0)")
+    parser.add_argument("--ablation", type=int, default=0,
+                        help="消融: 0=baseline, 1=no-A(SPTC双缓冲), 2=no-B(SPTC全N), 3=no-C(SPTC宽B), "
+                             "4=no-D(TC稠密tile), 5=no-E(chunking), 6=no-F(单写者写回), "
+                             "7=no-G(TC全N), 8=no-H(TC宽B), 9=no-I(m16n8k16), 10=no-AB(双流)")
+    parser.add_argument("--chunk", type=int, default=0,
+                        help="E-chunk 扫描: 0=自适应(auto), -1=整窗单CTA(同 no-E), "
+                             "16/32/64/128/256=固定每CTA块数 (TC/SPTC 共用)")
     parser.add_argument("--no-verify", action="store_true",
                         help="跳过 CPU 结果验证")
     parser.add_argument("--batch-dir", type=str, default=None,
@@ -503,7 +515,8 @@ def main():
     epoches = args.epoches
 
     output, elapsed_ms = run_gpu_spmm(
-        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode)
+        result_dict, rows, cols, dimN, epoches=epoches, mode=args.mode, ablation=args.ablation,
+        chunk=args.chunk)
 
     print(f"\n[结果] GPU SpMM 平均耗时: {elapsed_ms:.4f} ms (over {epoches} iterations)")
     print(f"  输出形状: {list(output.shape)}")
@@ -535,7 +548,10 @@ def main():
                 num_sptc,
                 num_tc,
                 args.dense_threshold,
-                1,
+                1,           # epoches
+                0,           # mode
+                10,          # warmup
+                args.ablation,
             )
         except ImportError:
             print("  TR_SPMM 未编译, 跳过验证")

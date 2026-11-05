@@ -129,6 +129,7 @@ static void match_window_2to4(
     std::vector<WinColumn>& columns,
     int dense_threshold,
     int t_max,
+    int tc_min_cols,
     // 出参:
     std::vector<Unit>& out_sptc_flat,   // [num_groups * 4]
     std::vector<WinColumn>& out_tc_flat     // [num_blocks * dense_threshold]
@@ -235,7 +236,12 @@ static void match_window_2to4(
     int processed = 0;
 
     // 路径 A: TC 路由
-    while (nd - processed >= dense_threshold) {
+    //   tc_min_cols: 生成 TC 块所需的残余列数下限 (<=0 表示取 dense_threshold,
+    //   即原始行为)。提高该值可让"残余列不够多"的窗口整体走 SPTC, 从而避免
+    //   该窗口同时存在 TC/SPTC 两条路径 (SPTC 侧需退化为 atomicAdd)。
+    int nblk = nd / dense_threshold;
+    if (tc_min_cols > 0 && nd < tc_min_cols) nblk = 0;
+    for (int b = 0; b < nblk; ++b) {
         for (int k = 0; k < dense_threshold; ++k)
             out_tc_flat.push_back(local_dense_pool[processed + k]);
         processed += dense_threshold;
@@ -415,6 +421,7 @@ static void run_2to4_matching(
     int           window_size,
     int           dense_threshold,
     int           t_max,
+    int           tc_min_cols,
 // 【新增参数】将接收修改的全局大数组引用传进来
     std::vector<int>&    global_sptc_window_offset,
     std::vector<double>& global_sptc_value,
@@ -476,7 +483,7 @@ static void run_2to4_matching(
         std::vector<Unit> sptc_flat;
         std::vector<WinColumn> tc_flat;
 
-        match_window_2to4(columns, dense_threshold, t_max,
+        match_window_2to4(columns, dense_threshold, t_max, tc_min_cols,
                           sptc_flat, tc_flat);
 
 
@@ -629,7 +636,8 @@ py::dict match_2to4_py(
     py::array_t<float, py::array::c_style | py::array::forcecast> values_arr,
     int window_size     = 16,
     int dense_threshold = 16,
-    int t_max           = 8)
+    int t_max           = 8,
+    int tc_min_cols     = 0)
 {
     py::buffer_info row_buf = row_ptr_arr.request();
     py::buffer_info col_buf = col_ind_arr.request();
@@ -667,7 +675,7 @@ py::dict match_2to4_py(
     std::vector<double>  global_tc_value;
 
     run_2to4_matching(
-        mtx, window_size, dense_threshold, t_max,
+        mtx, window_size, dense_threshold, t_max, tc_min_cols,
         global_sptc_window_offset, global_sptc_value, global_sptc_metadata, global_sptc_col_old,
         global_tc_window_offset, global_tc_offset, global_tc_local_id, global_tc_col_old, global_tc_value
     );
@@ -724,6 +732,7 @@ PYBIND11_MODULE(matching_utils, m) {
           py::arg("window_size")     = 16,
           py::arg("dense_threshold") = 16,
           py::arg("t_max")           = 8,
+          py::arg("tc_min_cols")     = 0,
           R"pbdoc(
 对 CSR 格式稀疏矩阵执行 Dual-Routing TC+SPTC 匹配.
 
