@@ -132,7 +132,9 @@ static torch::Tensor mp_forward(
     torch::Tensor rhs,               // [K, N] float16, CPU 或 CUDA
     int64_t m_rows, int64_t k_cols, int64_t dim_n) {
 
-    TORCH_CHECK(dim_n == 128, "mp_forward currently supports dimN=128 only");
+    // [port] kernel 每个 warp 覆盖 32 列, warp 数 = ceil(N/8)/4, 对 N=32/64/128
+    // 均成立 (N=32 -> 1 warp). 原守卫硬编码 128, 会误挡 N=32 的端到端复跑.
+    TORCH_CHECK(dim_n % 32 == 0, "mp_forward requires dimN divisible by 32");
     const int M = (int)((m_rows + 15) & ~15LL);   // 与官方 main 一致: pad 到 16
     const int K = (int)k_cols;
     const int N = (int)dim_n;

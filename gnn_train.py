@@ -43,7 +43,8 @@ RESULTS_DIR = ROOT / "result"
 
 # TR-source 是主代码; TR-abl-source 仅用于消融实验 (独立进程加载),
 # 所有 baseline 源码统一放在 baseline/ 下.
-for _p in (str(LIBRA_PKG), str(MP_PKG),
+DTC_PKG = BASE_DIR / "dtc"
+for _p in (str(LIBRA_PKG), str(MP_PKG), str(DTC_PKG),
            str(TR_MAIN), str(TR_MAIN / "SpMM")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -459,9 +460,18 @@ class DTCBackend:
         from tr_csr_fp16 import tr_tca_reorder
         rows, cols = A.shape
         t0 = time.perf_counter()
-        new_ptr, new_idx, reorder_id = tr_tca_reorder.apply_tca_reorder(
-            A.indptr.astype(np.int32), A.indices.astype(np.int32),
-            rows, thres=16, verbose=False)
+        if os.environ.get("DTC_NO_REORDER", "0") == "1":
+            # [opt] 跳过 TCA 行重排 (恒等置换). 官方 TCA_reorder 走 cugraph +
+            # libMHCUDA 的 GPU 实现; 本移植为纯 CPU datasketch, 在 >10M nnz
+            # 上需数小时. 恒等序只降低 16x8 TC 块密度, 不影响正确性, 用于单独
+            # 度量 DTC kernel 自身的端到端开销 (预处理仅剩 GPU 元数据构建).
+            reorder_id = np.arange(rows, dtype=np.int64)
+            new_ptr = A.indptr.astype(np.int32)
+            new_idx = A.indices.astype(np.int32)
+        else:
+            new_ptr, new_idx, reorder_id = tr_tca_reorder.apply_tca_reorder(
+                A.indptr.astype(np.int32), A.indices.astype(np.int32),
+                rows, thres=16, verbose=False)
         reorder_s = time.perf_counter() - t0
         nnz = int(len(new_idx))
         # [fix] 官方 DTC_dataset 会把行数补齐到 BLK_H=16 的倍数: kernel 每个

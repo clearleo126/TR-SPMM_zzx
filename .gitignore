@@ -83,3 +83,20 @@ TR-abl-source/log/
 /gpu_llm_sweep_summary.csv
 /sweep_opt125m.csv
 /sweep_opt1p3b.csv
+
+# 第三方 DTC 复现工程 (含其自带数据集, 体积大且非本项目源码)
+/baseline/flashsparse/
+
+# DTC 重排用的图数据集 (由 .npz 生成, 不入库)
+/baseline/dtc/reordering/asplos_dtc_dataset/
+/baseline/dtc/reordering/g_dataset/
+
+# DTC kernel 运行时自写的计时日志
+/DTCSpMM_exe_time_and_throughput.csv
+
+# result 目录里的冒烟/一次性输出 (保留 e2e_*.csv 这批论文数据)
+/result/gnn_e2e_new_*.csv
+/result/gnn_smoke.csv
+/result/smoke_*.csv
+/result/gnn_train_*.csv
+/result/mp_prep_external.csv

@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end GCN forward pass (2-layer, fwd only).
 
-    e2e_s = load_s + prep_s + wall(cold call) + wall(hot call)
+    e2e_s = prep_s + wall(cold call) + wall(hot call)      # 不含文件 I/O
+
+矩阵文件读取 (load_s) 对四家 baseline 完全相同, 且是纯 I/O 噪声源
+(实测 protein 两次 5.98s / 4.09s, 46% 波动), 因此不计入 e2e_s;
+`e2e_incl_load_s` 列保留含 I/O 的值以便对照.
 
 The two SpMM calls are timed separately and both enter e2e_s: layer 1 pays any
 one-off host work (metadata compression, cudaMalloc, first H2D), layer 2 runs
@@ -25,6 +29,7 @@ import gc
 import os
 import sys
 import time
+from pathlib import Path
 
 import torch
 
@@ -95,22 +100,31 @@ def run_one(name, A, load_s, method, dimN, device):
     second_ms = (time.perf_counter() - t0) * 1e3
 
     chain_ms = first_ms + second_ms
-    e2e_s = load_s + backend.prep_A_s + chain_ms / 1e3
+    e2e_s = backend.prep_A_s + chain_ms / 1e3          # 不含 load
+    e2e_load_s = load_s + e2e_s                        # 含 load, 仅作对照
 
     return {
         "dataset": name, "rows": n, "cols": k, "nnz": int(A.nnz),
-        "method": method, "load_s": f"{load_s:.4f}",
+        "method": method, "dimN": dimN, "load_s": f"{load_s:.4f}",
         "prep_s": f"{backend.prep_A_s:.4f}",
         "cold_ms": f"{first_ms:.4f}",
         "hot_ms": f"{second_ms:.4f}",
         "chain_2call_ms": f"{chain_ms:.4f}",
         "kernel_ms": f"{_kernel_time(method, backend):.4f}",
         "e2e_s": f"{e2e_s:.4f}",
+        "e2e_incl_load_s": f"{e2e_load_s:.4f}",
     }
 
 
-HEADER = ["dataset", "rows", "cols", "nnz", "method", "load_s", "prep_s",
-          "cold_ms", "hot_ms", "chain_2call_ms", "kernel_ms", "e2e_s"]
+HEADER = ["dataset", "rows", "cols", "nnz", "method", "dimN", "load_s",
+          "prep_s", "cold_ms", "hot_ms", "chain_2call_ms", "kernel_ms",
+          "e2e_s", "e2e_incl_load_s"]
+
+
+def _median_rec(recs):
+    """按 e2e_s 取中位数那一轮 (reps>1 时抗噪, 不用 min)."""
+    ordered = sorted(recs, key=lambda r: float(r["e2e_s"]))
+    return ordered[len(ordered) // 2]
 
 
 def main():
@@ -118,11 +132,13 @@ def main():
     ap.add_argument("--matrices", nargs="+", default=None)
     ap.add_argument("--methods", nargs="+", default=["tr", "mp", "libra"],
                     choices=["tr", "mp", "libra", "dtc"])
-    ap.add_argument("--dimN", type=int, default=DIM_N)
+    ap.add_argument("--dimN", nargs="+", type=int, default=[DIM_N])
     ap.add_argument("--tag", type=str, default="128")
     ap.add_argument("--out", type=str, default=None)
     ap.add_argument("--reps", type=int, default=1,
-                    help="每 (矩阵, 方法) 重复次数, 取 e2e 最小的那一轮 (抗噪声)")
+                    help="每 (矩阵, 方法, N) 重复次数, 取 e2e 中位数那一轮")
+    ap.add_argument("--append", action="store_true",
+                    help="追加模式: 逐行即时落盘 (分矩阵调用/长跑防中断丢数据)")
     args = ap.parse_args()
 
     if not torch.cuda.is_available():
@@ -131,47 +147,66 @@ def main():
 
     out_path = args.out or str(RESULTS_DIR / f"gnn_e2e_new_{args.tag}.csv")
     targets = discover(args.matrices)
-    print(f"{len(targets)} matrices, methods={args.methods}, dimN={args.dimN}",
-          file=sys.stderr)
+    print(f"{len(targets)} matrices, methods={args.methods}, "
+          f"dimN={args.dimN}, reps={args.reps}", file=sys.stderr)
 
-    rows = []
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_p = Path(out_path)
+    fresh = not (out_p.exists() and out_p.stat().st_size > 0) or not args.append
+    f = open(out_path, "a" if args.append and not fresh else "w", newline="")
+    w = csv.DictWriter(f, fieldnames=HEADER)
+    if fresh:
+        w.writeheader()
+        f.flush()
+
+    n_rows = 0
     for name, path in targets:
         A, load_s = load_mtx(path)
         print(f"=== {name} {A.shape} nnz={A.nnz} load={load_s:.2f}s ===",
               file=sys.stderr)
-        for method in args.methods:
-            best = None
-            for _rep in range(max(1, args.reps)):
-                _reset_tr_cache()
-                _reset_mp_cache()
-                _reset_libra_cache()
-                gc.collect()
-                torch.cuda.empty_cache()
-                try:
-                    rec = run_one(name, A, load_s, method, args.dimN, device)
-                except Exception as exc:  # missing MP bins / OOM / unsupported
-                    print(f"  [SKIP] {name} {method}: {exc}", file=sys.stderr)
-                    best = None
-                    break
-                if best is None or float(rec["e2e_s"]) < float(best["e2e_s"]):
-                    best = rec
-            if best is None:
-                continue
-            rows.append(best)
-            print(f"  [OK] {name:12s} {method:6s} prep={best['prep_s']:>8s}s "
-                  f"cold={best['cold_ms']:>9s}ms hot={best['hot_ms']:>9s}ms "
-                  f"kernel={best['kernel_ms']:>9s}ms e2e={best['e2e_s']:>9s}s",
-                  file=sys.stderr)
+        # rep 在外层: 同一 rep 内 N 与方法相邻执行, 消除机器状态漂移
+        acc = {(d, m): [] for d in args.dimN for m in args.methods}
+        failed = set()
+        for _rep in range(max(1, args.reps)):
+            for dimN in args.dimN:
+                for method in args.methods:
+                    key = (dimN, method)
+                    if key in failed:
+                        continue
+                    _reset_tr_cache()
+                    _reset_mp_cache()
+                    _reset_libra_cache()
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    try:
+                        rec = run_one(name, A, load_s, method, dimN, device)
+                    except Exception as exc:  # missing MP bins / OOM
+                        print(f"  [SKIP] {name} {method} N={dimN}: {exc}",
+                              file=sys.stderr)
+                        failed.add(key)
+                        continue
+                    acc[key].append(rec)
+        for dimN in args.dimN:
+            for method in args.methods:
+                lst = acc[(dimN, method)]
+                if not lst:
+                    continue
+                best = _median_rec(lst)
+                n_rows += 1
+                w.writerow(best)
+                f.flush()      # 即时落盘, 进程被杀也不丢已完成行
+                print(f"  [OK] {name:12s} {method:6s} N={dimN:<3d} "
+                      f"prep={best['prep_s']:>8s}s cold={best['cold_ms']:>9s}ms "
+                      f"hot={best['hot_ms']:>9s}ms "
+                      f"kernel={best['kernel_ms']:>8s}ms "
+                      f"e2e={best['e2e_s']:>9s}s "
+                      f"(n={len(lst)})", file=sys.stderr)
         del A
         gc.collect()
         torch.cuda.empty_cache()
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=HEADER)
-        w.writeheader()
-        w.writerows(rows)
-    print(f"[done] {len(rows)} rows -> {out_path}", file=sys.stderr)
+    f.close()
+    print(f"[done] {n_rows} rows -> {out_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
