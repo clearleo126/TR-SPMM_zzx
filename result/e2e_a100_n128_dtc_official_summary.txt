@@ -15,3 +15,5 @@ YeastH            6487230     1631.0       0.007     3.1621     17.47    1631.02
 未完成 (3000s 内未跑完, 无重排产物, 不填数): web-BerkStan / protein / reddit / ogbn_products
 瓶颈: 官方脚本的 datasketch LSH query 是纯 Python 单线程, 大图上 dominates;
       GPU 部分 (libMHCUDA MinHash + torch Jaccard) 只占数秒.
+
+完整 11 矩阵状态表 (含 4 个 TIMEOUT 的明确标注): result/e2e_a100_n128_dtc_official_status.txt

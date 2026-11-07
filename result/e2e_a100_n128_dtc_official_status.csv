@@ -1,0 +1,12 @@
+dataset,rows,nnz,status,reorder_s,prep_s,kernel_ms,chain_2call_ms,e2e_s,note
+ddi,4267,2140089,OK,234.4,234.4445,0.3594,1.6987,234.4462,official GPU TCA reorder completed
+DD,334925,1686092,OK,256.0,256.0055,0.6748,22.3536,256.0279,official GPU TCA reorder completed
+ogbn_arxiv,169343,1166243,OK,2184.0,2184.0038,0.4198,2.1861,2184.0060,official GPU TCA reorder completed
+web-BerkStan,685230,7600595,TIMEOUT,>3000,,,,,"TCA_reorder_gpu.py killed at 3000 s cap; no reorder artifact, no DTC timing"
+Yeast,1710902,3636546,OK,828.0,828.0046,1.7951,10.1075,828.0147,official GPU TCA reorder completed
+OVCAR-8H,1889542,3946402,OK,902.0,902.0066,3.2379,16.5529,902.0232,official GPU TCA reorder completed
+igb_small,1000000,12068130,OK,1005.0,1005.0132,4.1472,12.6403,1005.0259,official GPU TCA reorder completed
+YeastH,3138114,6487230,OK,1631.0,1631.0070,3.1621,17.4658,1631.0245,official GPU TCA reorder completed
+protein,132534,79255038,TIMEOUT,>3000,,,,,"TCA_reorder_gpu.py killed at 3000 s cap; no reorder artifact, no DTC timing"
+ogbn_products,2449029,123718152,TIMEOUT,>3000,,,,,"TCA_reorder_gpu.py killed at 3000 s cap; no reorder artifact, no DTC timing"
+reddit,232965,114848857,TIMEOUT,>3000,,,,,"TCA_reorder_gpu.py killed at 3000 s cap; no reorder artifact, no DTC timing"

@@ -1,0 +1,30 @@
+DTC official GPU TCA reorder - STATUS TABLE (N=128, A100-SXM4-80GB)
+重排实现: baseline/dtc/reordering/TCA_reorder_gpu.py
+  (算法同官方 TCA_reorder.py; 仅将 cugraph.jaccard 换为等价 torch GPU Jaccard,
+   因本机无 cudf/cugraph. libMHCUDA 2.3.0 由 src-d/minhashcuda 源码编译,
+   CUDA 12.8 / sm_80. TCA_GPU_MAX_ROWS=4000000 原为硬编码 1600000.)
+超时口径: 每个矩阵 `timeout 3000` 秒, 被杀即记 TIMEOUT, 不填任何时间数字.
+
+dataset            rows        nnz   status  reorder_s    prep_s kernel_ms chain_ms     e2e_s
+ddi                4267    2140089       OK      234.4  234.4445    0.3594   1.6987  234.4462
+DD               334925    1686092       OK      256.0  256.0055    0.6748  22.3536  256.0279
+ogbn_arxiv       169343    1166243       OK     2184.0 2184.0038    0.4198   2.1861 2184.0060
+web-BerkStan     685230    7600595  TIMEOUT      >3000                                       
+Yeast           1710902    3636546       OK      828.0  828.0046    1.7951  10.1075  828.0147
+OVCAR-8H        1889542    3946402       OK      902.0  902.0066    3.2379  16.5529  902.0232
+igb_small       1000000   12068130       OK     1005.0 1005.0132    4.1472  12.6403 1005.0259
+YeastH          3138114    6487230       OK     1631.0 1631.0070    3.1621  17.4658 1631.0245
+protein          132534   79255038  TIMEOUT      >3000                                       
+ogbn_products   2449029  123718152  TIMEOUT      >3000                                       
+reddit           232965  114848857  TIMEOUT      >3000                                       
+
+汇总: OK 7 / TIMEOUT 4 (web-BerkStan, protein, reddit, ogbn_products)
+
+TIMEOUT 原因: 官方脚本的 datasketch LSH query 为纯 Python 单线程,
+  重排成本随行数/候选对增长; 4 个 TIMEOUT 矩阵行数 23万~245万、
+  nnz 76M~124M, 在 3000 s 内均未生成 <name>.reorder_id.npz.
+  这 4 个矩阵的 DTC 端到端结果为"未测得", 不得记为 3000 s 或任何数值.
+
+GPU 侧耗时占比 (证明瓶颈不在 GPU): 以完成的 7 个矩阵为例,
+  libMHCUDA MinHash + torch Jaccard + 两级聚类 合计仅数秒,
+  其余全部为 LSH 查询; 详见 result/e2e_a100_n128_dtc_official_summary.txt
