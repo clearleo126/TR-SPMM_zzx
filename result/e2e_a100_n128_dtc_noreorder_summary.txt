@@ -1,0 +1,27 @@
+DTC_NO_REORDER=1 sensitivity run (DTC 恒等置换, 跳过 TCA 重排)
+主机: A100-SXM4-80GB / AMD EPYC 7742 / CUDA 12.8 | N=128 | reps=1 | 2026-11-07 10:13 UTC
+用途: 补齐 DTC 的 execution-only 数据, 8 个大图在带 TCA 重排时全部 1800s 超时.
+注意: 恒等序会降低 16x8 TC 块密度, 故此处的 kernel_ms 是 DTC 的下界(对 DTC 不利).
+
+=== ddi (4267, 4267) nnz=2140089 load=0.10s ===
+  [OK] ddi          dtc    N=128 prep=  0.0483s cold=  23.5199ms hot=   0.9570ms kernel=  0.6636ms e2e=   0.0727s (n=1)
+=== DD (334925, 334925) nnz=1686092 load=0.10s ===
+  [OK] DD           dtc    N=128 prep=  0.0047s cold=   2.2285ms hot=   1.9763ms kernel=  0.7537ms e2e=   0.0089s (n=1)
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.08s ===
+  [OK] ogbn_arxiv   dtc    N=128 prep=  0.0047s cold=   1.5914ms hot=   1.4088ms kernel=  0.6636ms e2e=   0.0077s (n=1)
+=== web-BerkStan (685230, 685230) nnz=7600595 load=0.28s ===
+  [OK] web-BerkStan dtc    N=128 prep=  0.0200s cold=   3.9085ms hot=   3.7685ms kernel=  1.6671ms e2e=   0.0277s (n=1)
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.18s ===
+  [OK] Yeast        dtc    N=128 prep=  0.0152s cold=  12.2106ms hot=   8.1909ms kernel=  2.9778ms e2e=   0.0356s (n=1)
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.18s ===
+  [OK] OVCAR-8H     dtc    N=128 prep=  0.0124s cold=   7.1747ms hot=   6.8873ms kernel=  2.7085ms e2e=   0.0264s (n=1)
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.89s ===
+  [OK] igb_small    dtc    N=128 prep=  0.0269s cold=   6.9082ms hot=   6.5147ms kernel=  4.6121ms e2e=   0.0403s (n=1)
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.25s ===
+  [OK] YeastH       dtc    N=128 prep=  0.0166s cold=   8.8626ms hot=   8.4652ms kernel=  3.1447ms e2e=   0.0339s (n=1)
+=== protein (132534, 132534) nnz=79255038 load=1.73s ===
+  [OK] protein      dtc    N=128 prep=  0.1841s cold=  11.5372ms hot=  11.2882ms kernel= 10.8114ms e2e=   0.2070s (n=1)
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=7.38s ===
+  [OK] ogbn_products dtc    N=128 prep=  0.2918s cold=  48.3944ms hot=  47.7675ms kernel= 42.9763ms e2e=   0.3879s (n=1)
+=== reddit (232965, 232965) nnz=114848857 load=2.44s ===
+  [OK] reddit       dtc    N=128 prep=  0.8692s cold=  28.7010ms hot=  26.1584ms kernel= 25.4771ms e2e=   0.9241s (n=1)
