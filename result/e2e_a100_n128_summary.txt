@@ -1,0 +1,131 @@
+=== P1 ddi Sat Nov  7 04:13:45 UTC 2026 ===
+=== ddi (4267, 4267) nnz=2140089 load=0.09s ===
+    [mp-prep] ddi: official 5-stage total = 0.820s
+    [mp-prep] ddi: official 5-stage total = 0.840s
+  [OK] ddi          tr     N=128 prep=  0.1194s cold=  26.0818ms hot=   0.6418ms kernel=  0.2243ms e2e=   0.1461s (n=2)
+  [OK] ddi          mp     N=128 prep=  1.1702s cold=   5.5665ms hot=   0.5660ms kernel=     nanms e2e=   1.1763s (n=2)
+  [OK] ddi          libra  N=128 prep=  2.5083s cold=   8.5143ms hot=   0.9891ms kernel=  0.4475ms e2e=   2.5178s (n=2)
+=== P1 ddi rc=0 Sat Nov  7 04:13:55 UTC 2026 ===
+=== P1 DD Sat Nov  7 04:13:55 UTC 2026 ===
+=== DD (334925, 334925) nnz=1686092 load=0.09s ===
+    [mp-prep] DD: official 5-stage total = 0.802s
+    [mp-prep] DD: official 5-stage total = 0.795s
+  [OK] DD           tr     N=128 prep=  0.2128s cold=  25.8358ms hot=   1.6544ms kernel=  0.3932ms e2e=   0.2403s (n=2)
+  [OK] DD           mp     N=128 prep=  1.0444s cold=   6.2856ms hot=   0.8287ms kernel=     nanms e2e=   1.0515s (n=2)
+  [OK] DD           libra  N=128 prep=  1.6014s cold=  21.8841ms hot=   2.9523ms kernel=  0.6451ms e2e=   1.6262s (n=2)
+=== P1 DD rc=0 Sat Nov  7 04:14:04 UTC 2026 ===
+=== P1 ogbn_arxiv Sat Nov  7 04:14:04 UTC 2026 ===
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.09s ===
+    [mp-prep] ogbn_arxiv: official 5-stage total = 0.873s
+    [mp-prep] ogbn_arxiv: official 5-stage total = 0.882s
+  [OK] ogbn_arxiv   tr     N=128 prep=  0.2065s cold=  33.1984ms hot=   1.3835ms kernel=  0.3973ms e2e=   0.2411s (n=2)
+  [OK] ogbn_arxiv   mp     N=128 prep=  1.1081s cold=  23.4139ms hot= 113.4429ms kernel=     nanms e2e=   1.2450s (n=2)
+  [OK] ogbn_arxiv   libra  N=128 prep=  1.7243s cold=  16.8080ms hot=   2.4927ms kernel=  0.6103ms e2e=   1.7436s (n=2)
+=== P1 ogbn_arxiv rc=0 Sat Nov  7 04:14:14 UTC 2026 ===
+=== P1 web-BerkStan Sat Nov  7 04:14:14 UTC 2026 ===
+=== web-BerkStan (685230, 685230) nnz=7600595 load=0.26s ===
+    [mp-prep] web-BerkStan: official 5-stage total = 2.891s
+    [mp-prep] web-BerkStan: official 5-stage total = 2.941s
+  [OK] web-BerkStan tr     N=128 prep=  0.5620s cold=  70.0215ms hot=   4.5350ms kernel=  1.4735ms e2e=   0.6366s (n=2)
+  [OK] web-BerkStan mp     N=128 prep=  3.5233s cold=  16.9075ms hot=   1.7423ms kernel=     nanms e2e=   3.5420s (n=2)
+  [OK] web-BerkStan libra  N=128 prep=  4.4762s cold=  42.6227ms hot=   5.8641ms kernel=  2.0337ms e2e=   4.5247s (n=2)
+=== P1 web-BerkStan rc=0 Sat Nov  7 04:14:35 UTC 2026 ===
+=== P1 Yeast Sat Nov  7 04:14:35 UTC 2026 ===
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.16s ===
+    [mp-prep] Yeast: official 5-stage total = 1.815s
+    [mp-prep] Yeast: official 5-stage total = 1.784s
+  [OK] Yeast        tr     N=128 prep=  0.7456s cold=  51.4409ms hot=   6.3575ms kernel=  1.3394ms e2e=   0.8034s (n=2)
+  [OK] Yeast        mp     N=128 prep=  2.7674s cold=  10.7540ms hot=   3.4646ms kernel=     nanms e2e=   2.7816s (n=2)
+  [OK] Yeast        libra  N=128 prep=  4.6484s cold=  78.3710ms hot=   9.3305ms kernel=  2.1647ms e2e=   4.7361s (n=2)
+=== P1 Yeast rc=0 Sat Nov  7 04:14:55 UTC 2026 ===
+=== P1 OVCAR-8H Sat Nov  7 04:14:55 UTC 2026 ===
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.17s ===
+    [mp-prep] OVCAR-8H: official 5-stage total = 2.044s
+    [mp-prep] OVCAR-8H: official 5-stage total = 1.999s
+  [OK] OVCAR-8H     tr     N=128 prep=  0.9465s cold=  56.0770ms hot=   7.0462ms kernel=  1.5114ms e2e=   1.0096s (n=2)
+  [OK] OVCAR-8H     mp     N=128 prep=  2.7994s cold=  19.1128ms hot=   3.9365ms kernel=     nanms e2e=   2.8224s (n=2)
+  [OK] OVCAR-8H     libra  N=128 prep=  5.5037s cold=  84.7334ms hot=  10.6467ms kernel=  2.4105ms e2e=   5.5990s (n=2)
+=== P1 OVCAR-8H rc=0 Sat Nov  7 04:15:17 UTC 2026 ===
+=== P1 igb_small Sat Nov  7 04:15:17 UTC 2026 ===
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.91s ===
+  [SKIP] igb_small mp N=128: MP official preprocessing failed rc=-6 stderr_tail=nfo: rows=1000000, cols=1000000, nonzeros=12070502
+  [OK] igb_small    tr     N=128 prep=  2.0396s cold= 164.2640ms hot=   9.9782ms kernel=  3.9137ms e2e=   2.2139s (n=2)
+  [OK] igb_small    libra  N=128 prep= 20.0036s cold= 103.7252ms hot=  15.4093ms kernel=  6.8721ms e2e=  20.1227s (n=2)
+=== P1 igb_small rc=0 Sat Nov  7 04:16:16 UTC 2026 ===
+=== P1 YeastH Sat Nov  7 04:16:16 UTC 2026 ===
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.25s ===
+    [mp-prep] YeastH: official 5-stage total = 3.194s
+    [mp-prep] YeastH: official 5-stage total = 3.222s
+  [OK] YeastH       tr     N=128 prep=  1.5354s cold=  81.4746ms hot=  11.4853ms kernel=  2.4525ms e2e=   1.6284s (n=2)
+  [OK] YeastH       mp     N=128 prep=  4.4055s cold=  22.8524ms hot=   6.2725ms kernel=     nanms e2e=   4.4347s (n=2)
+  [OK] YeastH       libra  N=128 prep=  8.8713s cold= 185.0313ms hot=  17.2321ms kernel=  3.9363ms e2e=   9.0736s (n=2)
+=== P1 YeastH rc=0 Sat Nov  7 04:16:50 UTC 2026 ===
+=== P1 protein Sat Nov  7 04:16:50 UTC 2026 ===
+=== protein (132534, 132534) nnz=79255038 load=3.24s ===
+    [mp-prep] protein: official 5-stage total = 36.184s
+  [SKIP] protein libra N=128: 'num_nodes_src is not a file in the archive'
+    [mp-prep] protein: official 5-stage total = 36.842s
+  [OK] protein      tr     N=128 prep=  5.6406s cold= 596.0612ms hot=  18.2594ms kernel=  8.8576ms e2e=   6.2549s (n=2)
+  [OK] protein      mp     N=128 prep= 47.7087s cold= 122.3566ms hot=   7.5170ms kernel=     nanms e2e=  47.8386s (n=2)
+=== P1 protein rc=0 Sat Nov  7 04:18:58 UTC 2026 ===
+=== P1 ogbn_products Sat Nov  7 04:18:58 UTC 2026 ===
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=7.42s ===
+  [SKIP] ogbn_products mp N=128: MP official preprocessing failed rc=-6 stderr_tail=rows=2449029, cols=2449029, nonzeros=123718280
+  [OK] ogbn_products tr     N=128 prep= 12.5398s cold=1694.0965ms hot=  58.3752ms kernel= 27.2456ms e2e=  14.2923s (n=2)
+  [OK] ogbn_products libra  N=128 prep=350.6715s cold=1108.4511ms hot= 143.2853ms kernel= 39.8121ms e2e= 351.9233s (n=2)
+=== P1 ogbn_products rc=0 Sat Nov  7 04:33:24 UTC 2026 ===
+=== P1 reddit Sat Nov  7 04:33:24 UTC 2026 ===
+=== reddit (232965, 232965) nnz=114848857 load=5.73s ===
+    [mp-prep] reddit: official 5-stage total = 55.466s
+    [mp-prep] reddit: official 5-stage total = 56.200s
+  [OK] reddit       tr     N=128 prep=  7.7703s cold= 768.2609ms hot=  33.5663ms kernel= 16.4168ms e2e=   8.5721s (n=2)
+  [OK] reddit       mp     N=128 prep= 90.2721s cold= 158.4085ms hot=  18.5210ms kernel=     nanms e2e=  90.4491s (n=2)
+  [OK] reddit       libra  N=128 prep=1119.8819s cold=2179.9932ms hot=  66.8335ms kernel= 28.5860ms e2e=1122.1287s (n=2)
+=== P1 reddit rc=0 Sat Nov  7 05:12:20 UTC 2026 ===
+=== P2 dtc ddi Sat Nov  7 05:12:20 UTC 2026 ===
+=== ddi (4267, 4267) nnz=2140089 load=0.09s ===
+  [OK] ddi          dtc    N=128 prep=183.9420s cold=  17.6469ms hot=   0.8714ms kernel=  0.5878ms e2e= 183.9605s (n=1)
+=== P2 ddi rc=0 Sat Nov  7 05:15:26 UTC 2026 ===
+=== P2 dtc DD Sat Nov  7 05:15:26 UTC 2026 ===
+=== DD (334925, 334925) nnz=1686092 load=0.09s ===
+  [OK] DD           dtc    N=128 prep=466.1494s cold=  14.1880ms hot=   1.9059ms kernel=  0.6595ms e2e= 466.1655s (n=1)
+=== P2 DD rc=0 Sat Nov  7 05:23:22 UTC 2026 ===
+=== P2 dtc ogbn_arxiv Sat Nov  7 05:23:22 UTC 2026 ===
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.10s ===
+  [OK] ogbn_arxiv   dtc    N=128 prep=454.9375s cold=  12.5298ms hot=   1.4254ms kernel=  0.5857ms e2e= 454.9514s (n=1)
+=== P2 ogbn_arxiv rc=0 Sat Nov  7 05:31:02 UTC 2026 ===
+=== P2 dtc web-BerkStan Sat Nov  7 05:31:02 UTC 2026 ===
+=== web-BerkStan (685230, 685230) nnz=7600595 load=0.35s ===
+  [SKIP] web-BerkStan dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 web-BerkStan rc=0 Sat Nov  7 06:01:52 UTC 2026 ===
+=== P2 dtc Yeast Sat Nov  7 06:01:52 UTC 2026 ===
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.31s ===
+  [SKIP] Yeast dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 Yeast rc=0 Sat Nov  7 06:32:35 UTC 2026 ===
+=== P2 dtc OVCAR-8H Sat Nov  7 06:32:35 UTC 2026 ===
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.17s ===
+  [SKIP] OVCAR-8H dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 OVCAR-8H rc=0 Sat Nov  7 07:03:13 UTC 2026 ===
+=== P2 dtc igb_small Sat Nov  7 07:03:13 UTC 2026 ===
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.99s ===
+  [SKIP] igb_small dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 igb_small rc=0 Sat Nov  7 07:33:48 UTC 2026 ===
+=== P2 dtc YeastH Sat Nov  7 07:33:48 UTC 2026 ===
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.28s ===
+  [SKIP] YeastH dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 YeastH rc=0 Sat Nov  7 08:04:25 UTC 2026 ===
+=== P2 dtc protein Sat Nov  7 08:04:25 UTC 2026 ===
+=== protein (132534, 132534) nnz=79255038 load=1.79s ===
+  [SKIP] protein dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 protein rc=0 Sat Nov  7 08:34:37 UTC 2026 ===
+=== P2 dtc ogbn_products Sat Nov  7 08:34:37 UTC 2026 ===
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=7.86s ===
+  [SKIP] ogbn_products dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 ogbn_products rc=0 Sat Nov  7 09:05:23 UTC 2026 ===
+=== P2 dtc reddit Sat Nov  7 09:05:23 UTC 2026 ===
+=== reddit (232965, 232965) nnz=114848857 load=3.53s ===
+  [SKIP] reddit dtc N=128: DTC preprocessing exceeded DTC_PREP_TIMEOUT=1800.0s (TCA 重排为主, 大图常见)
+=== P2 reddit rc=0 Sat Nov  7 09:35:39 UTC 2026 ===
+=== ALL DONE Sat Nov  7 09:35:39 UTC 2026 ===
+=== protein (132534, 132534) nnz=79255038 load=1.74s ===
+  [OK] protein      libra  N=128 prep=601.7812s cold=1244.3002ms hot=  53.0594ms kernel= 18.0408ms e2e= 603.0786s (n=2)
