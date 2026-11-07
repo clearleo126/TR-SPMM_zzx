@@ -444,6 +444,7 @@ class DTCBackend:
         self.prep_A_s = self.prep_AT_s = 0.0
         self._pA = self._pAT = None
         self._last_kernel_ms = float("nan")
+        self._name = None
 
     @staticmethod
     def _exeplan(dimN):
@@ -454,13 +455,51 @@ class DTCBackend:
             return "float2_split"
         return "float_nonsplit"
 
-    @staticmethod
-    def _build(A):
+    def set_dataset(self, name):
+        self._name = name
+
+    def _official_reorder(self, A):
+        """复用官方 GPU TCA reorder 预先算好的重排映射 (new→old).
+
+        官方脚本 baseline/dtc/reordering/TCA_reorder_gpu.py 产出
+        <name>.reorder_id.npz (键 reorder_id), 由 DTC_REORDER_ID_DIR 指定目录.
+        命中时按该映射重排 CSR 行, 并读 <name>.reorder_seconds.txt (若存在)
+        把官方重排耗时计入 prep, 与自带 tr_tca_reorder 的口径一致.
+        返回 (indptr, indices, reorder_id, seconds) 或 None (未命中).
+        """
+        d = os.environ.get("DTC_REORDER_ID_DIR", "")
+        name = getattr(self, "_name", None)
+        if not d or not name:
+            return None
+        p = Path(d) / f"{name}.reorder_id.npz"
+        if not p.exists():
+            return None
+        reorder_id = np.load(p)["reorder_id"].astype(np.int64)
+        rows = A.shape[0]
+        if reorder_id.shape[0] != rows or not np.array_equal(
+                np.sort(reorder_id), np.arange(rows)):
+            raise RuntimeError(f"{p}: reorder_id 不是 {rows} 阶置换")
+        lens = np.diff(A.indptr)[reorder_id].astype(np.int64)
+        new_ptr = np.zeros(rows + 1, dtype=np.int64)
+        np.cumsum(lens, out=new_ptr[1:])
+        starts = A.indptr[reorder_id].astype(np.int64)
+        offs = np.repeat(starts - new_ptr[:-1], lens)
+        nnz = int(A.indptr[-1])
+        new_idx = A.indices[np.arange(nnz, dtype=np.int64) + offs]
+        ts = Path(d) / f"{name}.reorder_seconds.txt"
+        secs = float(ts.read_text().strip()) if ts.exists() else 0.0
+        return (new_ptr.astype(np.int32), new_idx.astype(np.int32),
+                reorder_id, secs)
+
+    def _build(self, A, allow_official=True):
         import DTCSpMM
         from tr_csr_fp16 import tr_tca_reorder
         rows, cols = A.shape
         t0 = time.perf_counter()
-        if os.environ.get("DTC_NO_REORDER", "0") == "1":
+        off = self._official_reorder(A) if allow_official else None
+        if off is not None:
+            new_ptr, new_idx, reorder_id, reorder_s = off
+        elif os.environ.get("DTC_NO_REORDER", "0") == "1":
             # [opt] 跳过 TCA 行重排 (恒等置换). 官方 TCA_reorder 走 cugraph +
             # libMHCUDA 的 GPU 实现; 本移植为纯 CPU datasketch, 在 >10M nnz
             # 上需数小时. 恒等序只降低 16x8 TC 块密度, 不影响正确性, 用于单独
@@ -468,11 +507,12 @@ class DTCBackend:
             reorder_id = np.arange(rows, dtype=np.int64)
             new_ptr = A.indptr.astype(np.int32)
             new_idx = A.indices.astype(np.int32)
+            reorder_s = time.perf_counter() - t0
         else:
             new_ptr, new_idx, reorder_id = tr_tca_reorder.apply_tca_reorder(
                 A.indptr.astype(np.int32), A.indices.astype(np.int32),
                 rows, thres=16, verbose=False)
-        reorder_s = time.perf_counter() - t0
+            reorder_s = time.perf_counter() - t0
         nnz = int(len(new_idx))
         # [fix] 官方 DTC_dataset 会把行数补齐到 BLK_H=16 的倍数: kernel 每个
         # window 固定写 16 行输出, 未补齐时末窗会越界写 2.5KB 到相邻显存
@@ -531,7 +571,8 @@ class DTCBackend:
             if assume_undirected:
                 self._pAT, self.prep_AT_s = self._pA, 0.0
             else:
-                self._pAT, self.prep_AT_s = self._build(A.T.tocsr())
+                self._pAT, self.prep_AT_s = self._build(
+                    A.T.tocsr(), allow_official=False)
         finally:
             signal.setitimer(signal.ITIMER_REAL, 0)
             signal.signal(signal.SIGALRM, old_handler)

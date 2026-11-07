@@ -66,7 +66,7 @@ t0 = time.time()
 lsh = MinHashLSH(threshold=lsh_thres, num_perm=per)
 allver = []
 lists = [[] for i in range(num_row)]
-if num_row < 1600000:  # out of memory
+if num_row < int(os.environ.get("TCA_GPU_MAX_ROWS", "1600000")):  # out of memory
     bgen = WeightedMinHashGenerator(num_row)
     gen = libMHCUDA.minhash_cuda_init(num_row, 128, seed=1, verbosity=1)
     libMHCUDA.minhash_cuda_assign_vars(gen, bgen.rs, bgen.ln_cs, bgen.betas)

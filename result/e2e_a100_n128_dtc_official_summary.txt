@@ -1,0 +1,19 @@
+DTC 官方 GPU TCA reorder 版端到端 (TCA_reorder_gpu.py + libMHCUDA, CUDA 12.8)
+主机: A100-SXM4-80GB / AMD EPYC 7742 / CUDA 12.8 | N=128 | reps=1 | 2026-11-07 11:24 UTC
+prep_s = 官方重排墙钟 + DTC GPU 元数据构建; 与主 CSV 的 tr/mp/libra 同口径
+reorder 墙钟: ddi=234.4s DD=256.0s ogbn_arxiv=2184s Yeast=828s OVCAR-8H=902s igb_small=1005s YeastH=1631s 
+
+=== ddi (4267, 4267) nnz=2140089 load=0.14s ===
+  [OK] ddi          dtc    N=128 prep=234.4758s cold=  18.8341ms hot=   0.9103ms kernel=  0.6134ms e2e= 234.4955s (n=1)
+=== DD (334925, 334925) nnz=1686092 load=0.07s ===
+  [OK] DD           dtc    N=128 prep=256.0040s cold=   3.6628ms hot=   2.0012ms kernel=  0.6748ms e2e= 256.0097s (n=1)
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.10s ===
+  [OK] ogbn_arxiv   dtc    N=128 prep=2184.0056s cold=   1.6080ms hot=   1.4189ms kernel=  0.6502ms e2e=2184.0087s (n=1)
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.19s ===
+  [OK] Yeast        dtc    N=128 prep=828.0092s cold=  24.5235ms hot=   7.4720ms kernel=  2.9635ms e2e= 828.0412s (n=1)
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.15s ===
+  [OK] OVCAR-8H     dtc    N=128 prep=902.0060s cold=   7.4154ms hot=   9.7722ms kernel=  2.7679ms e2e= 902.0232s (n=1)
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.90s ===
+  [OK] igb_small    dtc    N=128 prep=1005.0133s cold=   6.4351ms hot=   6.2737ms kernel=  4.1656ms e2e=1005.0260s (n=1)
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.28s ===
+  [OK] YeastH       dtc    N=128 prep=1631.0072s cold=   8.9919ms hot=   8.6142ms kernel=  3.2256ms e2e=1631.0248s (n=1)
