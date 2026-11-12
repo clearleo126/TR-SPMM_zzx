@@ -271,6 +271,7 @@ UnitsPack* pack_columns_into_units(SparseMatrix* mtx_ptr, int& tc_blocks) {
 
         for (int l = window_l, r; l < window_r; l = r, colnum++) {
             for (r = l; r < window_r && list[r].col == list[l].col; r++) {
+                if (r > l && list[r].row == list[r - 1].row) continue;  // [zhy-fix] 跳过重复 (col,row) 条目: vec 按条目计数, padding 按覆盖赋值
                 vec += (uint32_t)1 << (2 * list[r].row);
             }
             cols[colnum & 1] = list + l;
