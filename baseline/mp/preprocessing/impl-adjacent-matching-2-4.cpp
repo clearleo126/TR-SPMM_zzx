@@ -267,7 +267,14 @@ UnitsPack* pack_columns_into_units(SparseMatrix* mtx_ptr, int& tc_blocks) {
         int colnum = 0;
         for (int l = window_l, r; l < window_r; l = r, colnum++) {
             for (r = l; r < window_r && list[r].col == list[l].col; r++) {
-                if (r > l && list[r].row == list[r - 1].row) continue;  // [zhy-fix] 跳过重复 (col,row) 条目: vec 按条目计数, padding 按覆盖赋值
+                // [fix] 同一个 (col,row) 出现多次时: vec 只能计一个位置, 而 padding
+                //   用 block[.][row] = val 顺序覆盖赋值. 因此把数值累加到最后一个
+                //   重复条目 (赋值顺序上最后写), 既与 vec 的单次计数一致, 又等价于
+                //   scipy/torch 的 sum_duplicates 语义.
+                if (r > l && list[r].row == list[r - 1].row) {
+                    list[r].val += list[r - 1].val;
+                    continue;
+                }
                 vec += (uint32_t)1 << (2 * list[r].row);
             }
             cols[colnum & 1] = list + l;

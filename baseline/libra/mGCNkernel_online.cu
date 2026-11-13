@@ -744,7 +744,17 @@ __global__ void _spmm_forward_fp16_sptc_mma_online_kernel_cuda_removed(
     // =========================================================================
     uint32_t b0, b1;
     {
-        unsigned smem_addr = __cvta_generic_to_shared(B_smem + warp_id * 128);
+        // [fix] ldmatrix.m8n8.x2 的地址由 lane 0..7 (matrix0, k=0..7) 和
+        //   lane 8..15 (matrix1, k=8..15) 提供, 其余 lane 地址被忽略.
+        //   B_smem 按 [feat(n)][col(k)×16] 行主序存放, 故每个行地址 =
+        //   某特征行的 8 个连续 k:  lane l<8 → &smem[l*16],
+        //   lane l∈[8,16) → &smem[(l-8)*16+8].
+        //   产生的 fragment 恰为 mma.sp m16n8k16 的 B 布局:
+        //     b0={B[2t][g], B[2t+1][g]}, b1={B[2t+8][g], B[2t+9][g]}
+        //   (原实现所有 lane 传同一地址 → 数值错误).
+        int ld_lane = lane & 15;
+        unsigned smem_addr = __cvta_generic_to_shared(
+            B_smem + warp_id * 128 + (ld_lane & 7) * 16 + ((ld_lane >> 3) << 3));
         asm volatile(
             "ldmatrix.sync.aligned.m8n8.x2.shared.b16 {%0, %1}, [%2];\n"
             : "=r"(b0), "=r"(b1)
@@ -898,7 +908,15 @@ __global__ void spmm_forward_fp16_sptc_mma_packed_v3_kernel_cuda(
         // --- ldmatrix + mma.sp (one MMA per warp, 8 features per warp) ---
         if (warp_feat_base < dimN) {
             uint32_t b0, b1;
-            unsigned smem_addr = __cvta_generic_to_shared(warp_smem);
+            // [fix] ldmatrix.m8n8.x2 的地址由 lane 0..7 (matrix0, k=0..7) 和
+            //   lane 8..15 (matrix1, k=8..15) 提供; warp_smem 为 [feat(n)][col(k)×16]
+            //   行主序, 行地址 = 某特征行的 8 个连续 k (lane l<8 → l*16,
+            //   l∈[8,16) → (l-8)*16+8). fragment 恰为 mma.sp m16n8k16 的 B 布局:
+            //     b0={B[2t][g], B[2t+1][g]}, b1={B[2t+8][g], B[2t+9][g]}
+            //   (原实现所有 lane 传同一地址 → 数值错误).
+            int ld_lane = lane & 15;
+            unsigned smem_addr = __cvta_generic_to_shared(
+                warp_smem + (ld_lane & 7) * 16 + ((ld_lane >> 3) << 3));
             asm volatile(
                 "ldmatrix.sync.aligned.m8n8.x2.shared.b16 {%0, %1}, [%2];\n"
                 : "=r"(b0), "=r"(b1)
@@ -921,12 +939,14 @@ __global__ void spmm_forward_fp16_sptc_mma_packed_v3_kernel_cuda(
     int out_col0 = feature_base + warp_id * 8 + thread_id_in_group * 2;
     int out_col1 = out_col0 + 1;
 
+    // [fix] mma.sp m16n8k16 的 C fragment: {c0,c1}=行 g 列 {2t,2t+1},
+    //   {c2,c3}=行 g+8. 原代码把 c1/c2 写反 (c1 写到行 g+8, c2 写到行 g).
     if (group_id_in_warp < window && row0 < mOri) {
         if (out_col0 < dimN) output_matrix[row0 * dimN + out_col0] = c0;
-        if (out_col1 < dimN) output_matrix[row0 * dimN + out_col1] = c2;
+        if (out_col1 < dimN) output_matrix[row0 * dimN + out_col1] = c1;
     }
     if (group_id_in_warp + 8 < window && row1 < mOri) {
-        if (out_col0 < dimN) output_matrix[row1 * dimN + out_col0] = c1;
+        if (out_col0 < dimN) output_matrix[row1 * dimN + out_col0] = c2;
         if (out_col1 < dimN) output_matrix[row1 * dimN + out_col1] = c3;
     }
 #endif
@@ -1083,7 +1103,16 @@ __global__ void _spmm_forward_fp16_sptc_mma_packed_online_kernel_cuda_removed(
     // =========================================================================
     uint32_t b0, b1;
     {
-        unsigned smem_addr = __cvta_generic_to_shared(B_smem + warp_id * 128);
+        // [fix] ldmatrix.m8n8.x2 的地址由 lane 0..7 (matrix0, k=0..7) 和
+        //   lane 8..15 (matrix1, k=8..15) 提供, 其余 lane 地址被忽略.
+        //   B_smem 按 [feat(n)][col(k)×16] 行主序存放, 行地址 = 某特征行
+        //   的 8 个连续 k:  lane l<8 → &smem[l*16], l∈[8,16) → &smem[(l-8)*16+8].
+        //   产生的 fragment 恰为 mma.sp m16n8k16 的 B 布局:
+        //     b0={B[2t][g], B[2t+1][g]}, b1={B[2t+8][g], B[2t+9][g]}
+        //   (原实现所有 lane 传同一地址 → 数值错误, 与上方注释宣称的布局不符).
+        int ld_lane = lane & 15;
+        unsigned smem_addr = __cvta_generic_to_shared(
+            B_smem + warp_id * 128 + (ld_lane & 7) * 16 + ((ld_lane >> 3) << 3));
         asm volatile(
             "ldmatrix.sync.aligned.m8n8.x2.shared.b16 {%0, %1}, [%2];\n"
             : "=r"(b0), "=r"(b1)
