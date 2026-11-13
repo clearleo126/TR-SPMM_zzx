@@ -1,0 +1,2003 @@
+nohup: ignoring input
+NVIDIA H100 PCIe
+dimN: 32
+32-144 mtcu-cuda-dense-8-0.0507
+
+144is success
+
+32-2D_27628_bjtcai mtcu-cuda-dense-8-0.0139
+
+2D_27628_bjtcaiis success
+
+32-2D_54019_highK mtcu-cuda-dense-8-0.0456
+
+2D_54019_highKis success
+
+32-333SP mtcu-cuda-dense-8-0.7704
+
+333SPis success
+
+32-3D_28984_Tetra mtcu-cuda-dense-8-0.0262
+
+3D_28984_Tetrais success
+
+32-3D_51448_3D mtcu-cuda-dense-8-0.0448
+
+3D_51448_3Dis success
+
+32-3Dspectralwave mtcu-cuda-dense-8-0.443
+
+3Dspectralwaveis success
+
+32-3Dspectralwave2 mtcu-cuda-dense-8-0.1954
+
+3Dspectralwave2is success
+
+32-3dtube mtcu-cuda-dense-8-0.0405
+
+3dtubeis success
+
+32-598a mtcu-cuda-dense-8-0.0413
+
+598ais success
+
+32-a0nsdsil mtcu-cuda-dense-8-0.0526
+
+a0nsdsilis success
+
+32-a2nnsnsl mtcu-cuda-dense-8-0.0517
+
+a2nnsnslis success
+
+32-a5esindl mtcu-cuda-dense-8-0.041
+
+a5esindlis success
+
+32-adaptive mtcu-cuda-dense-8-0.8972
+
+adaptiveis success
+
+32-af_0_k101 mtcu-cuda-dense-8-0.0903
+
+af_0_k101is success
+
+32-af_1_k101 mtcu-cuda-dense-8-0.0905
+
+af_1_k101is success
+
+32-af_2_k101 mtcu-cuda-dense-8-0.0901
+
+af_2_k101is success
+
+32-af_3_k101 mtcu-cuda-dense-8-0.09
+
+af_3_k101is success
+
+32-af_4_k101 mtcu-cuda-dense-8-0.0897
+
+af_4_k101is success
+
+32-af_5_k101 mtcu-cuda-dense-8-0.0906
+
+af_5_k101is success
+
+32-af_shell1 mtcu-cuda-dense-8-0.118
+
+af_shell1is success
+
+32-af_shell10 mtcu-cuda-dense-8-0.2533
+
+af_shell10is success
+
+32-af_shell2 mtcu-cuda-dense-8-0.1175
+
+af_shell2is success
+
+32-af_shell3 mtcu-cuda-dense-8-0.1182
+
+af_shell3is success
+
+32-af_shell4 mtcu-cuda-dense-8-0.1175
+
+af_shell4is success
+
+32-af_shell5 mtcu-cuda-dense-8-0.1175
+
+af_shell5is success
+
+32-af_shell6 mtcu-cuda-dense-8-0.118
+
+af_shell6is success
+
+32-af_shell7 mtcu-cuda-dense-8-0.1182
+
+af_shell7is success
+
+32-af_shell8 mtcu-cuda-dense-8-0.1181
+
+af_shell8is success
+
+32-af_shell9 mtcu-cuda-dense-8-0.1191
+
+af_shell9is success
+
+32-ak2010 mtcu-cuda-dense-8-0.0282
+
+ak2010is success
+
+32-Andrews mtcu-cuda-dense-8-0.0263
+
+Andrewsis success
+
+32-AS365 mtcu-cuda-dense-8-0.8688
+
+AS365is success
+
+32-as-caida mtcu-cuda-dense-8-0.027
+
+as-caidais success
+
+32-ASIC_680k mtcu-cuda-dense-8-0.5372
+
+ASIC_680kis success
+
+32-as-Skitter mtcu-cuda-dense-8-1.3252
+
+as-Skitteris success
+
+32-astro-ph mtcu-cuda-dense-8-0.0091
+
+astro-phis success
+
+32-audikw_1 mtcu-cuda-dense-8-0.5762
+
+audikw_1is success
+
+32-auto mtcu-cuda-dense-8-0.1685
+
+autois success
+
+32-barrier2-1 mtcu-cuda-dense-8-0.1053
+
+barrier2-1is success
+
+32-barrier2-10 mtcu-cuda-dense-8-0.1084
+
+barrier2-10is success
+
+32-barrier2-11 mtcu-cuda-dense-8-0.1083
+
+barrier2-11is success
+
+32-barrier2-12 mtcu-cuda-dense-8-0.1088
+
+barrier2-12is success
+
+32-barrier2-2 mtcu-cuda-dense-8-0.1055
+
+barrier2-2is success
+
+32-barrier2-3 mtcu-cuda-dense-8-0.1053
+
+barrier2-3is success
+
+32-barrier2-4 mtcu-cuda-dense-8-0.1053
+
+barrier2-4is success
+
+32-barrier2-9 mtcu-cuda-dense-8-0.1082
+
+barrier2-9is success
+
+32-bauru5727 mtcu-cuda-dense-8-0.0116
+
+bauru5727is success
+
+32-bbmat mtcu-cuda-dense-8-0.0207
+
+bbmatis success
+
+32-bcsstk17 mtcu-cuda-dense-8-0.0074
+
+bcsstk17is success
+
+32-bcsstk18 mtcu-cuda-dense-8-0.0075
+
+bcsstk18is success
+
+32-bcsstk25 mtcu-cuda-dense-8-0.008
+
+bcsstk25is success
+
+32-bcsstk29 mtcu-cuda-dense-8-0.0082
+
+bcsstk29is success
+
+32-bcsstk30 mtcu-cuda-dense-8-0.0149
+
+bcsstk30is success
+
+32-bcsstk31 mtcu-cuda-dense-8-0.0148
+
+bcsstk31is success
+
+32-bcsstk32 mtcu-cuda-dense-8-0.0206
+
+bcsstk32is success
+
+32-bcsstk35 mtcu-cuda-dense-8-0.0143
+
+bcsstk35is success
+
+32-bcsstk36 mtcu-cuda-dense-8-0.0109
+
+bcsstk36is success
+
+32-bcsstk37 mtcu-cuda-dense-8-0.0113
+
+bcsstk37is success
+
+32-bcsstk39 mtcu-cuda-dense-8-0.0173
+
+bcsstk39is success
+
+32-bcsstm36 mtcu-cuda-dense-8-0.0083
+
+bcsstm36is success
+
+32-belgium_osm mtcu-cuda-dense-8-0.2045
+
+belgium_osmis success
+
+32-BenElechi1 mtcu-cuda-dense-8-0.0716
+
+BenElechi1is success
+
+32-blockqp1 mtcu-cuda-dense-8-0.0484
+
+blockqp1is success
+
+32-bloweya mtcu-cuda-dense-8-0.0273
+
+bloweyais success
+
+32-bloweybl mtcu-cuda-dense-8-0.0271
+
+bloweyblis success
+
+32-bmw3_2 mtcu-cuda-dense-8-0.1427
+
+bmw3_2is success
+
+32-bmw7st_1 mtcu-cuda-dense-8-0.1125
+
+bmw7st_1is success
+
+32-bmwcra_1 mtcu-cuda-dense-8-0.0831
+
+bmwcra_1is success
+
+32-bone010 mtcu-cuda-dense-8-0.3755
+
+bone010is success
+
+32-boneS01 mtcu-cuda-dense-8-0.038
+
+boneS01is success
+
+32-boneS10 mtcu-cuda-dense-8-0.3235
+
+boneS10is success
+
+32-boyd1 mtcu-cuda-dense-8-0.0776
+
+boyd1is success
+
+32-boyd2 mtcu-cuda-dense-8-0.3585
+
+boyd2is success
+
+32-brack2 mtcu-cuda-dense-8-0.0232
+
+brack2is success
+
+32-brainpc2 mtcu-cuda-dense-8-0.0108
+
+brainpc2is success
+
+32-bratu3d mtcu-cuda-dense-8-0.0076
+
+bratu3dis success
+
+32-Bump_2911 mtcu-cuda-dense-8-0.8944
+
+Bump_2911is success
+
+32-bundle1 mtcu-cuda-dense-8-0.0091
+
+bundle1is success
+
+32-bundle_adj mtcu-cuda-dense-8-0.2263
+
+bundle_adjis success
+
+32-c-42 mtcu-cuda-dense-8-0.0116
+
+c-42is success
+
+32-c-43 mtcu-cuda-dense-8-0.0076
+
+c-43is success
+
+32-c-45 mtcu-cuda-dense-8-0.0065
+
+c-45is success
+
+32-c-46 mtcu-cuda-dense-8-0.0082
+
+c-46is success
+
+32-c-47 mtcu-cuda-dense-8-0.0157
+
+c-47is success
+
+32-c-48 mtcu-cuda-dense-8-0.0181
+
+c-48is success
+
+32-c-49 mtcu-cuda-dense-8-0.0198
+
+c-49is success
+
+32-c-50 mtcu-cuda-dense-8-0.0206
+
+c-50is success
+
+32-c-51 mtcu-cuda-dense-8-0.0212
+
+c-51is success
+
+32-c-52 mtcu-cuda-dense-8-0.0222
+
+c-52is success
+
+32-c-53 mtcu-cuda-dense-8-0.0227
+
+c-53is success
+
+32-c-54 mtcu-cuda-dense-8-0.0279
+
+c-54is success
+
+32-c-55 mtcu-cuda-dense-8-0.0288
+
+c-55is success
+
+32-c-56 mtcu-cuda-dense-8-0.0312
+
+c-56is success
+
+32-c-57 mtcu-cuda-dense-8-0.0139
+
+c-57is success
+
+32-c-58 mtcu-cuda-dense-8-0.0336
+
+c-58is success
+
+32-c-59 mtcu-cuda-dense-8-0.0345
+
+c-59is success
+
+32-c-60 mtcu-cuda-dense-8-0.0378
+
+c-60is success
+
+32-c-61 mtcu-cuda-dense-8-0.0371
+
+c-61is success
+
+32-c-62 mtcu-cuda-dense-8-0.0361
+
+c-62is success
+
+32-c-62ghs mtcu-cuda-dense-8-0.036
+
+c-62ghsis success
+
+32-c-63 mtcu-cuda-dense-8-0.037
+
+c-63is success
+
+32-c-64 mtcu-cuda-dense-8-0.0262
+
+c-64is success
+
+32-c-64b mtcu-cuda-dense-8-0.0267
+
+c-64bis success
+
+32-c-65 mtcu-cuda-dense-8-0.0402
+
+c-65is success
+
+32-c-66 mtcu-cuda-dense-8-0.0416
+
+c-66is success
+
+32-c-66b mtcu-cuda-dense-8-0.0419
+
+c-66bis success
+
+32-c-67b mtcu-cuda-dense-8-0.0486
+
+c-67bis success
+
+32-c-68 mtcu-cuda-dense-8-0.053
+
+c-68is success
+
+32-c-69 mtcu-cuda-dense-8-0.0552
+
+c-69is success
+
+32-c-70 mtcu-cuda-dense-8-0.0557
+
+c-70is success
+
+32-c-71 mtcu-cuda-dense-8-0.0619
+
+c-71is success
+
+32-c-73 mtcu-cuda-dense-8-0.0349
+
+c-73is success
+
+32-c-73b mtcu-cuda-dense-8-0.0348
+
+c-73bis success
+
+32-ca-AstroPh mtcu-cuda-dense-8-0.0179
+
+ca-AstroPhis success
+
+32-ca-CondMat mtcu-cuda-dense-8-0.0152
+
+ca-CondMatis success
+
+32-cage14 mtcu-cuda-dense-8-1.0762
+
+cage14is success
+
+32-cage15 mtcu-cuda-dense-8-4.0476
+
+cage15is success
+
+32-ca-HepPh mtcu-cuda-dense-8-0.0131
+
+ca-HepPhis success
+
+32-caidaRouterLevel mtcu-cuda-dense-8-0.1087
+
+caidaRouterLevelis success
+
+32-cant mtcu-cuda-dense-8-0.0229
+
+cantis success
+
+32-case39 mtcu-cuda-dense-8-0.0112
+
+case39is success
+
+32-case9 mtcu-cuda-dense-8-0.0063
+
+case9is success
+
+32-c-big mtcu-cuda-dense-8-0.2648
+
+c-bigis success
+
+32-cbuckle mtcu-cuda-dense-8-0.0139
+
+cbuckleis success
+
+32-ccc mtcu-cuda-dense-8-0.0114
+
+cccis success
+
+32-cfd1 mtcu-cuda-dense-8-0.0236
+
+cfd1is success
+
+32-Chebyshev4 mtcu-cuda-dense-8-0.0818
+
+Chebyshev4is success
+
+32-circuit_4 mtcu-cuda-dense-8-0.0648
+
+circuit_4is success
+
+32-circuit5M mtcu-cuda-dense-8-5.7775
+
+circuit5Mis success
+
+32-circuit5M_dc mtcu-cuda-dense-8-1.4361
+
+circuit5M_dcis success
+
+32-citationCiteseer mtcu-cuda-dense-8-0.2092
+
+citationCiteseeris success
+
+32-cit-Patents mtcu-cuda-dense-8-1.7939
+
+cit-Patentsis success
+
+32-ckt11752_dc_1 mtcu-cuda-dense-8-0.0458
+
+ckt11752_dc_1is success
+
+32-ckt11752_tr_0 mtcu-cuda-dense-8-0.0455
+
+ckt11752_tr_0is success
+
+32-cnr-2000 mtcu-cuda-dense-8-0.2256
+
+cnr-2000is success
+
+32-CO mtcu-cuda-dense-8-0.1205
+
+COis success
+
+32-coAuthorsCiteseer mtcu-cuda-dense-8-0.0472
+
+coAuthorsCiteseeris success
+
+32-coAuthorsDBLP mtcu-cuda-dense-8-0.0887
+
+coAuthorsDBLPis success
+
+32-cond-mat-2003 mtcu-cuda-dense-8-0.0109
+
+cond-mat-2003is success
+
+32-cond-mat-2005 mtcu-cuda-dense-8-0.0161
+
+cond-mat-2005is success
+
+32-conf5_4-8x8-05 mtcu-cuda-dense-8-0.0269
+
+conf5_4-8x8-05is success
+
+32-conf5_4-8x8-10 mtcu-cuda-dense-8-0.0269
+
+conf5_4-8x8-10is success
+
+32-conf5_4-8x8-15 mtcu-cuda-dense-8-0.0268
+
+conf5_4-8x8-15is success
+
+32-conf5_4-8x8-20 mtcu-cuda-dense-8-0.027
+
+conf5_4-8x8-20is success
+
+32-conf6_0-8x8-20 mtcu-cuda-dense-8-0.0269
+
+conf6_0-8x8-20is success
+
+32-conf6_0-8x8-30 mtcu-cuda-dense-8-0.0272
+
+conf6_0-8x8-30is success
+
+32-conf6_0-8x8-80 mtcu-cuda-dense-8-0.0269
+
+conf6_0-8x8-80is success
+
+32-consph mtcu-cuda-dense-8-0.0337
+
+consphis success
+
+32-cont-201 mtcu-cuda-dense-8-0.0153
+
+cont-201is success
+
+32-cont-300 mtcu-cuda-dense-8-0.0271
+
+cont-300is success
+
+32-coPapersCiteseer mtcu-cuda-dense-8-0.3559
+
+coPapersCiteseeris success
+
+32-coPapersDBLP mtcu-cuda-dense-8-0.4355
+
+coPapersDBLPis success
+
+32-copter1 mtcu-cuda-dense-8-0.0088
+
+copter1is success
+
+32-CoupCons3D mtcu-cuda-dense-8-0.2424
+
+CoupCons3Dis success
+
+32-crankseg_1 mtcu-cuda-dense-8-0.0515
+
+crankseg_1is success
+
+32-crankseg_2 mtcu-cuda-dense-8-0.0659
+
+crankseg_2is success
+
+32-crplat2 mtcu-cuda-dense-8-0.009
+
+crplat2is success
+
+32-crystk02 mtcu-cuda-dense-8-0.0091
+
+crystk02is success
+
+32-crystk03 mtcu-cuda-dense-8-0.0116
+
+crystk03is success
+
+32-crystm02 mtcu-cuda-dense-8-0.0098
+
+crystm02is success
+
+32-crystm03 mtcu-cuda-dense-8-0.0149
+
+crystm03is success
+
+32-ct2010 mtcu-cuda-dense-8-0.0189
+
+ct2010is success
+
+32-ct20stif mtcu-cuda-dense-8-0.0309
+
+ct20stifis success
+
+32-Cube_Coup_dt0 mtcu-cuda-dense-8-0.7677
+
+Cube_Coup_dt0is success
+
+32-Cube_Coup_dt6 mtcu-cuda-dense-8-0.7657
+
+Cube_Coup_dt6is success
+
+32-CurlCurl_0 mtcu-cuda-dense-8-0.0065
+
+CurlCurl_0is success
+
+32-CurlCurl_4 mtcu-cuda-dense-8-0.4254
+
+CurlCurl_4is success
+
+32-cvxqp3 mtcu-cuda-dense-8-0.0076
+
+cvxqp3is success
+
+32-cyl6 mtcu-cuda-dense-8-0.0145
+
+cyl6is success
+
+32-darcy003 mtcu-cuda-dense-8-0.0887
+
+darcy003is success
+
+32-dawson5 mtcu-cuda-dense-8-0.0169
+
+dawson5is success
+
+32-dblp-2010 mtcu-cuda-dense-8-0.1717
+
+dblp-2010is success
+
+32-dc3 mtcu-cuda-dense-8-0.1015
+
+dc3is success
+
+32-de2010 mtcu-cuda-dense-8-0.0091
+
+de2010is success
+
+32-debr mtcu-cuda-dense-8-0.2414
+
+debris success
+
+32-delaunay_n15 mtcu-cuda-dense-8-0.0117
+
+delaunay_n15is success
+
+32-delaunay_n16 mtcu-cuda-dense-8-0.0193
+
+delaunay_n16is success
+
+32-delaunay_n17 mtcu-cuda-dense-8-0.0341
+
+delaunay_n17is success
+
+32-delaunay_n18 mtcu-cuda-dense-8-0.0614
+
+delaunay_n18is success
+
+32-delaunay_n19 mtcu-cuda-dense-8-0.1235
+
+delaunay_n19is success
+
+32-delaunay_n20 mtcu-cuda-dense-8-0.2432
+
+delaunay_n20is success
+
+32-delaunay_n21 mtcu-cuda-dense-8-0.4722
+
+delaunay_n21is success
+
+32-delaunay_n22 mtcu-cuda-dense-8-0.957
+
+delaunay_n22is success
+
+32-denormal mtcu-cuda-dense-8-0.0163
+
+denormalis success
+
+32-dictionary28 mtcu-cuda-dense-8-0.016
+
+dictionary28is success
+
+32-dielFilterV2clx mtcu-cuda-dense-8-0.4235
+
+dielFilterV2clxis success
+
+32-dielFilterV2real mtcu-cuda-dense-8-0.6802
+
+dielFilterV2realis success
+
+32-dielFilterV3clx mtcu-cuda-dense-8-0.3795
+
+dielFilterV3clxis success
+
+32-Dubcova1 mtcu-cuda-dense-8-0.0088
+
+Dubcova1is success
+
+32-Dubcova3 mtcu-cuda-dense-8-0.0303
+
+Dubcova3is success
+
+32-e40r0100 mtcu-cuda-dense-8-0.0128
+
+e40r0100is success
+
+32-EAT_RS mtcu-cuda-dense-8-0.0229
+
+EAT_RSis success
+
+32-ecology1 mtcu-cuda-dense-8-0.193
+
+ecology1is success
+
+32-ecology2 mtcu-cuda-dense-8-0.1937
+
+ecology2is success
+
+32-email-Enron mtcu-cuda-dense-8-0.0354
+
+email-Enronis success
+
+32-Emilia_923 mtcu-cuda-dense-8-0.3686
+
+Emilia_923is success
+
+32-engine mtcu-cuda-dense-8-0.0966
+
+engineis success
+
+32-enron mtcu-cuda-dense-8-0.0246
+
+enronis success
+
+32-eu-2005 mtcu-cuda-dense-8-0.6936
+
+eu-2005is success
+
+32-ex11 mtcu-cuda-dense-8-0.0138
+
+ex11is success
+
+32-ex19 mtcu-cuda-dense-8-0.0093
+
+ex19is success
+
+32-F1 mtcu-cuda-dense-8-0.2918
+
+F1is success
+
+32-F2 mtcu-cuda-dense-8-0.0443
+
+F2is success
+
+32-Fault_639 mtcu-cuda-dense-8-0.2845
+
+Fault_639is success
+
+32-fcondp2 mtcu-cuda-dense-8-0.0662
+
+fcondp2is success
+
+32-fem_hifreq_circuit mtcu-cuda-dense-8-0.3849
+
+fem_hifreq_circuitis success
+
+32-filter3D mtcu-cuda-dense-8-0.0415
+
+filter3Dis success
+
+32-finance256 mtcu-cuda-dense-8-0.0117
+
+finance256is success
+
+32-Flan_1565 mtcu-cuda-dense-8-0.7784
+
+Flan_1565is success
+
+32-flickr mtcu-cuda-dense-8-0.668
+
+flickris success
+
+32-foldoc mtcu-cuda-dense-8-0.0094
+
+foldocis success
+
+32-Freescale1 mtcu-cuda-dense-8-1.459
+
+Freescale1is success
+
+32-fullb mtcu-cuda-dense-8-0.0657
+
+fullbis success
+
+32-FullChip mtcu-cuda-dense-8-2.634
+
+FullChipis success
+
+32-fxm4_6 mtcu-cuda-dense-8-0.0138
+
+fxm4_6is success
+
+32-G2_circuit mtcu-cuda-dense-8-0.029
+
+G2_circuitis success
+
+32-G3_circuit mtcu-cuda-dense-8-0.2687
+
+G3_circuitis success
+
+32-Ga10As10H30 mtcu-cuda-dense-8-0.0911
+
+Ga10As10H30is success
+
+32-Ga19As19H42 mtcu-cuda-dense-8-0.1082
+
+Ga19As19H42is success
+
+32-Ga3As3H12 mtcu-cuda-dense-8-0.056
+
+Ga3As3H12is success
+
+32-Ga41As41H72 mtcu-cuda-dense-8-0.2452
+
+Ga41As41H72is success
+
+32-GaAsH6 mtcu-cuda-dense-8-0.0519
+
+GaAsH6is success
+
+32-gas_sensor mtcu-cuda-dense-8-0.0229
+
+gas_sensoris success
+
+32-Ge87H76 mtcu-cuda-dense-8-0.0935
+
+Ge87H76is success
+
+32-Ge99H100 mtcu-cuda-dense-8-0.0944
+
+Ge99H100is success
+
+32-gearbox mtcu-cuda-dense-8-0.0617
+
+gearboxis success
+
+32-Geo_1438 mtcu-cuda-dense-8-0.5575
+
+Geo_1438is success
+
+32-gridgena mtcu-cuda-dense-8-0.02
+
+gridgenais success
+
+32-gsm_106857 mtcu-cuda-dense-8-0.5756
+
+gsm_106857is success
+
+32-gupta1 mtcu-cuda-dense-8-0.0198
+
+gupta1is success
+
+32-gupta2 mtcu-cuda-dense-8-0.0354
+
+gupta2is success
+
+32-gupta3 mtcu-cuda-dense-8-0.0357
+
+gupta3is success
+
+32-gyro mtcu-cuda-dense-8-0.0107
+
+gyrois success
+
+32-gyro_k mtcu-cuda-dense-8-0.0109
+
+gyro_kis success
+
+32-gyro_m mtcu-cuda-dense-8-0.0098
+
+gyro_mis success
+
+32-H2O mtcu-cuda-dense-8-0.0306
+
+H2Ois success
+
+32-halfb mtcu-cuda-dense-8-0.0928
+
+halfbis success
+
+32-Hamrle3 mtcu-cuda-dense-8-0.3604
+
+Hamrle3is success
+
+32-hangGlider_4 mtcu-cuda-dense-8-0.0168
+
+hangGlider_4is success
+
+32-hangGlider_5 mtcu-cuda-dense-8-0.0172
+
+hangGlider_5is success
+
+32-helm2d03 mtcu-cuda-dense-8-0.0866
+
+helm2d03is success
+
+32-helm3d01 mtcu-cuda-dense-8-0.0123
+
+helm3d01is success
+
+32-hi2010 mtcu-cuda-dense-8-0.0088
+
+hi2010is success
+
+32-hollywood-2009 mtcu-cuda-dense-8-1.5675
+
+hollywood-2009is success
+
+32-hood mtcu-cuda-dense-8-0.0598
+
+hoodis success
+
+32-Hook_1498 mtcu-cuda-dense-8-0.564
+
+Hook_1498is success
+
+32-HTC_336_4438 mtcu-cuda-dense-8-0.0783
+
+HTC_336_4438is success
+
+32-HTC_336_9129 mtcu-cuda-dense-8-0.0779
+
+HTC_336_9129is success
+
+32-hugetric-00000 mtcu-cuda-dense-8-0.6352
+
+hugetric-00000is success
+
+32-human_gene1 mtcu-cuda-dense-8-0.218
+
+human_gene1is success
+
+32-human_gene2 mtcu-cuda-dense-8-0.1392
+
+human_gene2is success
+
+32-HV15R mtcu-cuda-dense-8-2.456
+
+HV15Ris success
+
+32-ibm_matrix_2 mtcu-cuda-dense-8-0.045
+
+ibm_matrix_2is success
+
+32-igbt3 mtcu-cuda-dense-8-0.0099
+
+igbt3is success
+
+32-in-2004 mtcu-cuda-dense-8-0.9552
+
+in-2004is success
+
+32-inlet mtcu-cuda-dense-8-0.0083
+
+inletis success
+
+32-inline_1 mtcu-cuda-dense-8-0.4118
+
+inline_1is success
+
+32-ins2 mtcu-cuda-dense-8-0.2499
+
+ins2is success
+
+32-italy_osm mtcu-cuda-dense-8-0.8259
+
+italy_osmis success
+
+32-jan99jac120sc mtcu-cuda-dense-8-0.0138
+
+jan99jac120scis success
+
+32-juba40k mtcu-cuda-dense-8-0.0113
+
+juba40kis success
+
+32-k3plates mtcu-cuda-dense-8-0.008
+
+k3platesis success
+
+32-kim1 mtcu-cuda-dense-8-0.0139
+
+kim1is success
+
+32-kkt_power mtcu-cuda-dense-8-0.6593
+
+kkt_poweris success
+
+32-kron_g500-logn16 mtcu-cuda-dense-8-0.087
+
+kron_g500-logn16is success
+
+32-kron_g500-logn17 mtcu-cuda-dense-8-0.1978
+
+kron_g500-logn17is success
+
+32-kron_g500-logn18 mtcu-cuda-dense-8-0.41
+
+kron_g500-logn18is success
+
+32-kron_g500-logn19 mtcu-cuda-dense-8-0.8438
+
+kron_g500-logn19is success
+
+32-kron_g500-logn20 mtcu-cuda-dense-8-1.7237
+
+kron_g500-logn20is success
+
+32-laminar_duct3D mtcu-cuda-dense-8-0.037
+
+laminar_duct3Dis success
+
+32-language mtcu-cuda-dense-8-0.3141
+
+languageis success
+
+32-largebasis mtcu-cuda-dense-8-0.1542
+
+largebasisis success
+
+32-ldoor mtcu-cuda-dense-8-0.2841
+
+ldooris success
+
+32-lhr34 mtcu-cuda-dense-8-0.0138
+
+lhr34is success
+
+32-lhr34c mtcu-cuda-dense-8-0.0131
+
+lhr34cis success
+
+32-lhr71 mtcu-cuda-dense-8-0.0221
+
+lhr71is success
+
+32-lhr71c mtcu-cuda-dense-8-0.0218
+
+lhr71cis success
+
+32-li mtcu-cuda-dense-8-0.0189
+
+liis success
+
+32-ljournal-2008 mtcu-cuda-dense-8-4.711
+
+ljournal-2008is success
+
+32-Long_Coup_dt0 mtcu-cuda-dense-8-0.7046
+
+Long_Coup_dt0is success
+
+32-Long_Coup_dt6 mtcu-cuda-dense-8-0.705
+
+Long_Coup_dt6is success
+
+32-lowThrust_10 mtcu-cuda-dense-8-0.0086
+
+lowThrust_10is success
+
+32-lowThrust_11 mtcu-cuda-dense-8-0.008
+
+lowThrust_11is success
+
+32-lowThrust_12 mtcu-cuda-dense-8-0.0081
+
+lowThrust_12is success
+
+32-lowThrust_13 mtcu-cuda-dense-8-0.008
+
+lowThrust_13is success
+
+32-lowThrust_4 mtcu-cuda-dense-8-0.0078
+
+lowThrust_4is success
+
+32-lowThrust_5 mtcu-cuda-dense-8-0.008
+
+lowThrust_5is success
+
+32-lowThrust_6 mtcu-cuda-dense-8-0.0081
+
+lowThrust_6is success
+
+32-lowThrust_7 mtcu-cuda-dense-8-0.0081
+
+lowThrust_7is success
+
+32-lowThrust_8 mtcu-cuda-dense-8-0.0085
+
+lowThrust_8is success
+
+32-lowThrust_9 mtcu-cuda-dense-8-0.0086
+
+lowThrust_9is success
+
+32-lp1 mtcu-cuda-dense-8-0.0923
+
+lp1is success
+
+32-luxembourg_osm mtcu-cuda-dense-8-0.0203
+
+luxembourg_osmis success
+
+32-m14b mtcu-cuda-dense-8-0.0737
+
+m14bis success
+
+32-mario001 mtcu-cuda-dense-8-0.0129
+
+mario001is success
+
+32-mario002 mtcu-cuda-dense-8-0.089
+
+mario002is success
+
+32-mark3jac040sc mtcu-cuda-dense-8-0.0096
+
+mark3jac040scis success
+
+32-mark3jac060sc mtcu-cuda-dense-8-0.0115
+
+mark3jac060scis success
+
+32-me2010 mtcu-cuda-dense-8-0.0237
+
+me2010is success
+
+32-memplus mtcu-cuda-dense-8-0.0182
+
+memplusis success
+
+32-mip1 mtcu-cuda-dense-8-0.0648
+
+mip1is success
+
+32-ML_Laplace mtcu-cuda-dense-8-0.2606
+
+ML_Laplaceis success
+
+32-mouse_gene mtcu-cuda-dense-8-0.3531
+
+mouse_geneis success
+
+32-msc10848 mtcu-cuda-dense-8-0.0126
+
+msc10848is success
+
+32-msc23052 mtcu-cuda-dense-8-0.0162
+
+msc23052is success
+
+32-msdoor mtcu-cuda-dense-8-0.1781
+
+msdooris success
+
+32-m_t1 mtcu-cuda-dense-8-0.055
+
+m_t1is success
+
+32-mult_dcop_01 mtcu-cuda-dense-8-0.024
+
+mult_dcop_01is success
+
+32-mult_dcop_02 mtcu-cuda-dense-8-0.0237
+
+mult_dcop_02is success
+
+32-mult_dcop_03 mtcu-cuda-dense-8-0.0242
+
+mult_dcop_03is success
+
+32-NACA0015 mtcu-cuda-dense-8-0.2239
+
+NACA0015is success
+
+32-nasasrb mtcu-cuda-dense-8-0.0186
+
+nasasrbis success
+
+32-nd12k mtcu-cuda-dense-8-0.0452
+
+nd12kis success
+
+32-nd24k mtcu-cuda-dense-8-0.1012
+
+nd24kis success
+
+32-nd6k mtcu-cuda-dense-8-0.0238
+
+nd6kis success
+
+32-net100 mtcu-cuda-dense-8-0.0307
+
+net100is success
+
+32-net125 mtcu-cuda-dense-8-0.0372
+
+net125is success
+
+32-net150 mtcu-cuda-dense-8-0.0433
+
+net150is success
+
+32-net4-1 mtcu-cuda-dense-8-0.0731
+
+net4-1is success
+
+32-net50 mtcu-cuda-dense-8-0.018
+
+net50is success
+
+32-net75 mtcu-cuda-dense-8-0.0245
+
+net75is success
+
+32-netherlands_osm mtcu-cuda-dense-8-0.3907
+
+netherlands_osmis success
+
+32-nh2010 mtcu-cuda-dense-8-0.015
+
+nh2010is success
+
+32-NLR mtcu-cuda-dense-8-0.9599
+
+NLRis success
+
+32-NotreDame_www mtcu-cuda-dense-8-0.0711
+
+NotreDame_wwwis success
+
+32-nv2010 mtcu-cuda-dense-8-0.0283
+
+nv2010is success
+
+32-ohne2 mtcu-cuda-dense-8-0.2083
+
+ohne2is success
+
+32-oilpan mtcu-cuda-dense-8-0.0195
+
+oilpanis success
+
+32-olafu mtcu-cuda-dense-8-0.0092
+
+olafuis success
+
+32-onetone2 mtcu-cuda-dense-8-0.0139
+
+onetone2is success
+
+32-OPF_10000 mtcu-cuda-dense-8-0.0158
+
+OPF_10000is success
+
+32-opt1 mtcu-cuda-dense-8-0.0127
+
+opt1is success
+
+32-p2p-Gnutella31 mtcu-cuda-dense-8-0.015
+
+p2p-Gnutella31is success
+
+32-parabolic_fem mtcu-cuda-dense-8-0.1157
+
+parabolic_femis success
+
+32-patents mtcu-cuda-dense-8-1.06
+
+patentsis success
+
+32-pattern1 mtcu-cuda-dense-8-0.1415
+
+pattern1is success
+
+32-pcrystk02 mtcu-cuda-dense-8-0.0091
+
+pcrystk02is success
+
+32-pcrystk03 mtcu-cuda-dense-8-0.012
+
+pcrystk03is success
+
+32-pct20stif mtcu-cuda-dense-8-0.0313
+
+pct20stifis success
+
+32-pdb1HYS mtcu-cuda-dense-8-0.0206
+
+pdb1HYSis success
+
+32-pds10 mtcu-cuda-dense-8-0.0099
+
+pds10is success
+
+32-PFlow_742 mtcu-cuda-dense-8-0.2818
+
+PFlow_742is success
+
+32-pkustk01 mtcu-cuda-dense-8-0.0121
+
+pkustk01is success
+
+32-pkustk02 mtcu-cuda-dense-8-0.0107
+
+pkustk02is success
+
+32-pkustk03 mtcu-cuda-dense-8-0.0264
+
+pkustk03is success
+
+32-pkustk04 mtcu-cuda-dense-8-0.0475
+
+pkustk04is success
+
+32-pkustk05 mtcu-cuda-dense-8-0.0206
+
+pkustk05is success
+
+32-pkustk06 mtcu-cuda-dense-8-0.0262
+
+pkustk06is success
+
+32-pkustk07 mtcu-cuda-dense-8-0.0182
+
+pkustk07is success
+
+32-pkustk08 mtcu-cuda-dense-8-0.0237
+
+pkustk08is success
+
+32-pkustk09 mtcu-cuda-dense-8-0.0141
+
+pkustk09is success
+
+32-pkustk10 mtcu-cuda-dense-8-0.0391
+
+pkustk10is success
+
+32-pkustk11 mtcu-cuda-dense-8-0.0435
+
+pkustk11is success
+
+32-pkustk12 mtcu-cuda-dense-8-0.0815
+
+pkustk12is success
+
+32-pkustk13 mtcu-cuda-dense-8-0.0699
+
+pkustk13is success
+
+32-pkustk14 mtcu-cuda-dense-8-0.132
+
+pkustk14is success
+
+32-pli mtcu-cuda-dense-8-0.0132
+
+pliis success
+
+32-PR02R mtcu-cuda-dense-8-0.0935
+
+PR02Ris success
+
+32-Pres_Poisson mtcu-cuda-dense-8-0.009
+
+Pres_Poissonis success
+
+32-pwtk mtcu-cuda-dense-8-0.0778
+
+pwtkis success
+
+32-qa8fk mtcu-cuda-dense-8-0.0188
+
+qa8fkis success
+
+32-qa8fm mtcu-cuda-dense-8-0.0186
+
+qa8fmis success
+
+32-raefsky3 mtcu-cuda-dense-8-0.0126
+
+raefsky3is success
+
+32-raefsky4 mtcu-cuda-dense-8-0.0105
+
+raefsky4is success
+
+32-rajat15 mtcu-cuda-dense-8-0.0337
+
+rajat15is success
+
+32-rajat22 mtcu-cuda-dense-8-0.035
+
+rajat22is success
+
+32-rajat26 mtcu-cuda-dense-8-0.0436
+
+rajat26is success
+
+32-rajat29 mtcu-cuda-dense-8-0.5853
+
+rajat29is success
+
+32-rajat30 mtcu-cuda-dense-8-0.5752
+
+rajat30is success
+
+32-ramage02 mtcu-cuda-dense-8-0.0166
+
+ramage02is success
+
+32-Reuters911 mtcu-cuda-dense-8-0.0139
+
+Reuters911is success
+
+32-rgg_n_2_15_s0 mtcu-cuda-dense-8-0.0128
+
+rgg_n_2_15_s0is success
+
+32-rgg_n_2_22_s0 mtcu-cuda-dense-8-1.6195
+
+rgg_n_2_22_s0is success
+
+32-ri2010 mtcu-cuda-dense-8-0.0094
+
+ri2010is success
+
+32-rim mtcu-cuda-dense-8-0.0146
+
+rimis success
+
+32-RM07R mtcu-cuda-dense-8-0.4093
+
+RM07Ris success
+
+32-rma10 mtcu-cuda-dense-8-0.0238
+
+rma10is success
+
+32-roadNet-CA mtcu-cuda-dense-8-0.4675
+
+roadNet-CAis success
+
+32-roadNet-PA mtcu-cuda-dense-8-0.2705
+
+roadNet-PAis success
+
+32-roadNet-TX mtcu-cuda-dense-8-0.3368
+
+roadNet-TXis success
+
+32-s3dkq4m2 mtcu-cuda-dense-8-0.0205
+
+s3dkq4m2is success
+
+32-s3dkt3m2 mtcu-cuda-dense-8-0.0276
+
+s3dkt3m2is success
+
+32-s4dkt3m2 mtcu-cuda-dense-8-0.0279
+
+s4dkt3m2is success
+
+32-Serena mtcu-cuda-dense-8-0.7087
+
+Serenais success
+
+32-shermanACb mtcu-cuda-dense-8-0.019
+
+shermanACbis success
+
+32-ship_001 mtcu-cuda-dense-8-0.0218
+
+ship_001is success
+
+32-ship_003 mtcu-cuda-dense-8-0.0489
+
+ship_003is success
+
+32-shipsec1 mtcu-cuda-dense-8-0.0559
+
+shipsec1is success
+
+32-shipsec5 mtcu-cuda-dense-8-0.0731
+
+shipsec5is success
+
+32-shipsec8 mtcu-cuda-dense-8-0.0458
+
+shipsec8is success
+
+32-Si10H16 mtcu-cuda-dense-8-0.0147
+
+Si10H16is success
+
+32-Si34H36 mtcu-cuda-dense-8-0.0715
+
+Si34H36is success
+
+32-Si41Ge41H72 mtcu-cuda-dense-8-0.1791
+
+Si41Ge41H72is success
+
+32-Si5H12 mtcu-cuda-dense-8-0.0153
+
+Si5H12is success
+
+32-Si87H76 mtcu-cuda-dense-8-0.1651
+
+Si87H76is success
+
+32-sinc15 mtcu-cuda-dense-8-0.0186
+
+sinc15is success
+
+32-SiO mtcu-cuda-dense-8-0.0295
+
+SiOis success
+
+32-SiO2 mtcu-cuda-dense-8-0.1409
+
+SiO2is success
+
+32-skirt mtcu-cuda-dense-8-0.0074
+
+skirtis success
+
+32-smallworld mtcu-cuda-dense-8-0.0262
+
+smallworldis success
+
+32-sme3Dc mtcu-cuda-dense-8-0.0921
+
+sme3Dcis success
+
+32-smt mtcu-cuda-dense-8-0.0203
+
+smtis success
+
+32-soc-LiveJournal1 mtcu-cuda-dense-8-4.5673
+
+soc-LiveJournal1is success
+
+32-soc-sign-Slashdot090221 mtcu-cuda-dense-8-0.0595
+
+soc-sign-Slashdot090221is success
+
+32-sparsine mtcu-cuda-dense-8-0.0346
+
+sparsineis success
+
+32-srb1 mtcu-cuda-dense-8-0.045
+
+srb1is success
+
+32-Stanford mtcu-cuda-dense-8-0.2423
+
+Stanfordis success
+
+32-std1_Jac2 mtcu-cuda-dense-8-0.0245
+
+std1_Jac2is success
+
+32-std1_Jac3 mtcu-cuda-dense-8-0.0256
+
+std1_Jac3is success
+
+32-stokes128 mtcu-cuda-dense-8-0.0185
+
+stokes128is success
+
+32-stokes64 mtcu-cuda-dense-8-0.0073
+
+stokes64is success
+
+32-struct3 mtcu-cuda-dense-8-0.0151
+
+struct3is success
+
+32-t2dah mtcu-cuda-dense-8-0.0072
+
+t2dahis success
+
+32-t2dah_a mtcu-cuda-dense-8-0.007
+
+t2dah_ais success
+
+32-t2dah_e mtcu-cuda-dense-8-0.0072
+
+t2dah_eis success
+
+32-t3dh mtcu-cuda-dense-8-0.0373
+
+t3dhis success
+
+32-t3dh_a mtcu-cuda-dense-8-0.0366
+
+t3dh_ais success
+
+32-t3dh_e mtcu-cuda-dense-8-0.0368
+
+t3dh_eis success
+
+32-t3dl mtcu-cuda-dense-8-0.0104
+
+t3dlis success
+
+32-t3dl_a mtcu-cuda-dense-8-0.0103
+
+t3dl_ais success
+
+32-tandem_vtx mtcu-cuda-dense-8-0.0088
+
+tandem_vtxis success
+
+32-ted_A mtcu-cuda-dense-8-0.0086
+
+ted_Ais success
+
+32-ted_AB mtcu-cuda-dense-8-0.0104
+
+ted_ABis success
+
+32-ted_AB_unscaled mtcu-cuda-dense-8-0.0101
+
+ted_AB_unscaledis success
+
+32-ted_A_unscaled mtcu-cuda-dense-8-0.0081
+
+ted_A_unscaledis success
+
+32-ted_B_unscaled mtcu-cuda-dense-8-0.0068
+
+ted_B_unscaledis success
+
+32-thread mtcu-cuda-dense-8-0.0251
+
+threadis success
+
+32-tmt_sym mtcu-cuda-dense-8-0.1811
+
+tmt_symis success
+
+32-torso1 mtcu-cuda-dense-8-0.1045
+
+torso1is success
+
+32-transient mtcu-cuda-dense-8-0.1413
+
+transientis success
+
+32-trdheim mtcu-cuda-dense-8-0.0111
+
+trdheimis success
+
+32-Trefethen_20000 mtcu-cuda-dense-8-0.0121
+
+Trefethen_20000is success
+
+32-Trefethen_20000b mtcu-cuda-dense-8-0.0119
+
+Trefethen_20000bis success
+
+32-troll mtcu-cuda-dense-8-0.1029
+
+trollis success
+
+32-TSOPF_FS_b162_c1 mtcu-cuda-dense-8-0.0071
+
+TSOPF_FS_b162_c1is success
+
+32-TSOPF_FS_b162_c3 mtcu-cuda-dense-8-0.0127
+
+TSOPF_FS_b162_c3is success
+
+32-TSOPF_FS_b162_c4 mtcu-cuda-dense-8-0.0156
+
+TSOPF_FS_b162_c4is success
+
+32-TSOPF_FS_b300 mtcu-cuda-dense-8-0.0196
+
+TSOPF_FS_b300is success
+
+32-TSOPF_FS_b300_c1 mtcu-cuda-dense-8-0.0197
+
+TSOPF_FS_b300_c1is success
+
+32-TSOPF_FS_b300_c2 mtcu-cuda-dense-8-0.0366
+
+TSOPF_FS_b300_c2is success
+
+32-TSOPF_FS_b300_c3 mtcu-cuda-dense-8-0.0529
+
+TSOPF_FS_b300_c3is success
+
+32-TSOPF_FS_b39_c19 mtcu-cuda-dense-8-0.0176
+
+TSOPF_FS_b39_c19is success
+
+32-TSOPF_FS_b39_c30 mtcu-cuda-dense-8-0.0243
+
+TSOPF_FS_b39_c30is success
+
+32-TSOPF_FS_b39_c7 mtcu-cuda-dense-8-0.0136
+
+TSOPF_FS_b39_c7is success
+
+32-TSOPF_FS_b9_c6 mtcu-cuda-dense-8-0.0143
+
+TSOPF_FS_b9_c6is success
+
+32-TSOPF_RS_b162_c3 mtcu-cuda-dense-8-0.0137
+
+TSOPF_RS_b162_c3is success
+
+32-TSOPF_RS_b162_c4 mtcu-cuda-dense-8-0.0131
+
+TSOPF_RS_b162_c4is success
+
+32-TSOPF_RS_b2052_c1 mtcu-cuda-dense-8-0.0416
+
+TSOPF_RS_b2052_c1is success
+
+32-TSOPF_RS_b2383 mtcu-cuda-dense-8-0.0883
+
+TSOPF_RS_b2383is success
+
+32-TSOPF_RS_b2383_c1 mtcu-cuda-dense-8-0.0876
+
+TSOPF_RS_b2383_c1is success
+
+32-TSOPF_RS_b300_c1 mtcu-cuda-dense-8-0.0128
+
+TSOPF_RS_b300_c1is success
+
+32-TSOPF_RS_b300_c2 mtcu-cuda-dense-8-0.0235
+
+TSOPF_RS_b300_c2is success
+
+32-TSOPF_RS_b300_c3 mtcu-cuda-dense-8-0.0327
+
+TSOPF_RS_b300_c3is success
+
+32-TSOPF_RS_b39_c19 mtcu-cuda-dense-8-0.0128
+
+TSOPF_RS_b39_c19is success
+
+32-TSOPF_RS_b39_c30 mtcu-cuda-dense-8-0.0169
+
+TSOPF_RS_b39_c30is success
+
+32-TSOPF_RS_b39_c7 mtcu-cuda-dense-8-0.0076
+
+TSOPF_RS_b39_c7is success
+
+32-TSOPF_RS_b678_c1 mtcu-cuda-dense-8-0.0293
+
+TSOPF_RS_b678_c1is success
+
+32-TSOPF_RS_b678_c2 mtcu-cuda-dense-8-0.0535
+
+TSOPF_RS_b678_c2is success
+
+32-tsyl201 mtcu-cuda-dense-8-0.0168
+
+tsyl201is success
+
+32-tube1 mtcu-cuda-dense-8-0.0088
+
+tube1is success
+
+32-tube2 mtcu-cuda-dense-8-0.0089
+
+tube2is success
+
+32-turon_m mtcu-cuda-dense-8-0.0466
+
+turon_mis success
+
+32-usroads mtcu-cuda-dense-8-0.0195
+
+usroadsis success
+
+32-usroads-48 mtcu-cuda-dense-8-0.0188
+
+usroads-48is success
+
+32-vanbody mtcu-cuda-dense-8-0.0184
+
+vanbodyis success
+
+32-venturiLevel3 mtcu-cuda-dense-8-0.5005
+
+venturiLevel3is success
+
+32-vibrobox mtcu-cuda-dense-8-0.0104
+
+vibroboxis success
+
+32-viscorocks mtcu-cuda-dense-8-0.0145
+
+viscorocksis success
+
+32-vsp_barth5_1Ksep_50in_5Kout mtcu-cuda-dense-8-0.012
+
+vsp_barth5_1Ksep_50in_5Koutis success
+
+32-vsp_bcsstk30_500sep_10in_1Kout mtcu-cuda-dense-8-0.0784
+
+vsp_bcsstk30_500sep_10in_1Koutis success
+
+32-vsp_befref_fxm_2_4_air02 mtcu-cuda-dense-8-0.0085
+
+vsp_befref_fxm_2_4_air02is success
+
+32-vsp_bump2_e18_aa01_model1_crew1 mtcu-cuda-dense-8-0.0217
+
+vsp_bump2_e18_aa01_model1_crew1is success
+
+32-vsp_c-30_data_data mtcu-cuda-dense-8-0.0062
+
+vsp_c-30_data_datais success
+
+32-vsp_c-60_data_cti_cs4 mtcu-cuda-dense-8-0.0521
+
+vsp_c-60_data_cti_cs4is success
+
+32-vsp_finan512_scagr7-2c_rlfddd mtcu-cuda-dense-8-0.065
+
+vsp_finan512_scagr7-2c_rlfdddis success
+
+32-vsp_mod2_pgp2_slptsk mtcu-cuda-dense-8-0.0695
+
+vsp_mod2_pgp2_slptskis success
+
+32-vsp_model1_crew1_cr42_south31 mtcu-cuda-dense-8-0.0207
+
+vsp_model1_crew1_cr42_south31is success
+
+32-vsp_msc10848_300sep_100in_1Kout mtcu-cuda-dense-8-0.0449
+
+vsp_msc10848_300sep_100in_1Koutis success
+
+32-vsp_p0291_seymourl_iiasa mtcu-cuda-dense-8-0.0118
+
+vsp_p0291_seymourl_iiasais success
+
+32-vsp_sctap1-2b_and_seymourl mtcu-cuda-dense-8-0.0336
+
+vsp_sctap1-2b_and_seymourlis success
+
+32-vsp_south31_slptsk mtcu-cuda-dense-8-0.0185
+
+vsp_south31_slptskis success
+
+32-vsp_vibrobox_scagr7-2c_rlfddd mtcu-cuda-dense-8-0.0435
+
+vsp_vibrobox_scagr7-2c_rlfdddis success
+
+32-vt2010 mtcu-cuda-dense-8-0.0126
+
+vt2010is success
+
+32-wathen100 mtcu-cuda-dense-8-0.0094
+
+wathen100is success
+
+32-wathen120 mtcu-cuda-dense-8-0.0117
+
+wathen120is success
+
+32-web-Google mtcu-cuda-dense-8-0.6733
+
+web-Googleis success
+
+32-web-NotreDame mtcu-cuda-dense-8-0.1371
+
+web-NotreDameis success
+
+32-wikipedia-20051105 mtcu-cuda-dense-8-1.4163
+
+wikipedia-20051105is success
+
+32-wikipedia-20060925 mtcu-cuda-dense-8-2.6263
+
+wikipedia-20060925is success
+
+32-wikipedia-20061104 mtcu-cuda-dense-8-2.776
+
+wikipedia-20061104is success
+
+32-wikipedia-20070206 mtcu-cuda-dense-8-3.1566
+
+wikipedia-20070206is success
+
+32-wiki-Talk mtcu-cuda-dense-8-0.3051
+
+wiki-Talkis success
+
+32-windscreen mtcu-cuda-dense-8-0.0113
+
+windscreenis success
+
+32-wing_nodal mtcu-cuda-dense-8-0.0078
+
+wing_nodalis success
+
+32-wy2010 mtcu-cuda-dense-8-0.0292
+
+wy2010is success
+
+32-x104 mtcu-cuda-dense-8-0.0606
+
+x104is success
+
+32-Zd_Jac2 mtcu-cuda-dense-8-0.0257
+
+Zd_Jac2is success
+
+32-Zd_Jac3 mtcu-cuda-dense-8-0.0276
+
+Zd_Jac3is success
+
+32-Zd_Jac6 mtcu-cuda-dense-8-0.0264
+
+Zd_Jac6is success
+

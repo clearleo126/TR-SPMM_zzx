@@ -1,0 +1,62 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <torch/torch.h>
+#include <thrust/host_vector.h>
+#include <thrust/device_vector.h>
+#include <thrust/sort.h>
+#include <thrust/count.h>
+#include <thrust/functional.h>
+#include <thrust/copy.h>
+#include <thrust/transform_reduce.h>
+#include <thrust/transform.h>
+#include <thrust/gather.h>
+#include <thrust/reduce.h>
+#include <vector>
+#include <map>
+#include <unordered_map>
+// #include <thrust/iterator/discard_iterator.h>
+// #include <thrust/iterator/constant_iterator.h>  // 确保包含此头文件
+
+
+struct Value_tcu_binary {
+    std::vector<int> t_column;
+    std::vector<float> t_value;
+    bool tcu_flag = false;
+    std::vector<long> t_binary;
+    std::vector<int> row, window, atomic, t_block_offset;
+};
+
+struct Value_cuda {
+    std::vector<int> c_column;
+    std::vector<float> c_value;
+    bool cuda_flag = false, cuda_residue_flag = false;
+    int c_row, c_row_offset, c_atomic;
+};
+
+// 用 Pybind11 和 Torch 将 CUDA 和 PyTorch 数据集成
+std::vector<torch::Tensor> block_tf32_tcu_cuda_binary_kernel(
+    torch::Tensor row1, torch::Tensor column1, torch::Tensor values1,
+    int partSize_t, int partSize_c, int shortSize, int density, int window, int wide)
+{
+    auto row=row1.data<int>();
+    auto column=column1.data<int>();
+    auto values=values1.data<int>();
+    int rows=row1.size(0)-1;
+    int num_windows = rows / window;
+
+    // 定义保存结果的结构体和向量
+    thrust::device_vector<Value_tcu_binary> res_t;
+    thrust::device_vector<Value_cuda> res_c, res_c_residue;
+    
+
+
+    // 返回结果，这里省略了具体的返回部分，示例为返回一些模拟数据
+    std::vector<int> dummy_vector = {1, 2, 3};
+    torch::Tensor dummy_tensor = torch::from_blob(dummy_vector.data(), {3}, torch::kInt32);
+    return {dummy_tensor, dummy_tensor, dummy_tensor};  // 按照实际返回需求填充
+}
+
+// 使用 Pybind 将 CUDA 函数绑定到 Python
+PYBIND11_MODULE(block_tcu, m) {
+    m.def("block_tf32_tcu_cuda_binary_kernel", &block_tf32_tcu_cuda_binary_kernel, "TCU and CUDA kernel for sparse tensor computation");
+}

@@ -1,0 +1,103 @@
+import torch
+from scipy.sparse import *
+import sys
+sys.path.append('/home/shijinliang/module/ppopp26-Libra/eva100/plot/ablation/tcu_utilization/')
+from test_libra_csr import *
+import csv
+import pandas as pd
+import time
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+
+                
+'''
+只cuda, 长短行
+'''
+# def libra_csr_test_cuda(dataset, hidden, epoches, density, partsize,data_path,type) : 
+#     for dimN in hidden:        
+#         sddmm = test_cuda(dataset, epoches, dimN, density, partsize, data_path, type)
+#         return sddmm    
+
+'''
+tcu cuda
+'''
+def libra_csr_test_tcu_cuda(dataset, hidden, epoches, density, partsize_t, partsize_c, shortsize, data_path,  window, wide, type) : 
+    # for data in dataset:
+    for dimN in hidden:        
+        ratio = test_tcu_cuda(dataset, epoches, dimN, density, partsize_t, partsize_c, shortsize, data_path, window,wide, type)   
+        return ratio
+    
+'''
+只tcu
+'''
+def libra_csr_test_tcu(dataset, hidden, epoches, density, partsize,data_path,  window, wide) : 
+    for dimN in hidden:        
+        ratio = test_tcu(dataset, epoches, dimN, density, partsize, data_path, window,wide)
+        return ratio
+    
+             
+if __name__ == "__main__":
+    # 获取第一个可用的 GPU 设备
+    gpu_device = torch.cuda.current_device()
+    
+    # 打印 GPU 设备的名称
+    gpu = torch.cuda.get_device_name(gpu_device)
+    print(gpu)
+
+
+    # dimN = int(sys.argv[1])
+    dimN=32
+    print('dimN: ' + str(dimN))
+    hidden = []
+    hidden.append(dimN)
+    epoches = 10
+    window = 8
+    wide = 16
+    
+    # density = [4, 8, 14, 18, 22, 30, 38, 50]
+    density = [8, 16, 24, 32, 40, 48, 56, 64]
+    partsize_t = 32
+    partsize_c = 32
+    shortsize = 3
+    # sp_matrix    gcn_matrix
+    data_path = 'sp_matrix'
+    # 定义目录路径和目标移动路径
+    source_dir = '/home/shijinliang/module/Libra/dgl_dataset/sp_matrix'  # 要解压的目录路径
+    type = 0
+    #用于存储结果
+    file_name = '/home/shijinliang/module/ppopp26-Libra/eva100/plot/ablation/tcu_utilization/sddmm/result.csv'
+
+    head = ['dataSet', 'num_nodes', 'num_edges', 'tcu', 'hybrid']    # 写入数据到 CSV 文件
+    with open(file_name, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(head)
+
+    #读取csv遍历每个数据集
+
+    df = pd.read_csv('/home/shijinliang/module/Libra/res/h100/sddmm/tf32/2new_filter_h100_sddmm_tf32_result_neww_128.csv')
+    for index, row in df.iterrows():
+
+        res_temp = []
+        res_temp.append(row.iloc[0])
+        res_temp.append(row.iloc[1])
+        res_temp.append(row.iloc[2])
+        
+        #纯tcu
+        sddmm_tcu = libra_csr_test_tcu(row.iloc[0], hidden, epoches, 1, partsize_t, data_path,  window, wide)
+        res_temp.append(sddmm_tcu)
+        
+        # #纯cuda
+        # sddmm_cuda = libra_csr_test_cuda(row.iloc[0], hidden, epoches, 1, partsize_c, data_path, type)
+        # res_temp.append(sddmm_cuda)
+                    
+
+        sddmm = libra_csr_test_tcu_cuda(row.iloc[0], hidden, epoches, row['density'],partsize_t, partsize_c, shortsize, data_path, window, wide, type)
+        res_temp.append(sddmm)
+        print()
+        
+        with open(file_name, 'a', newline='') as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(res_temp)
+        print(row.iloc[0] + 'is success')
+        print()
