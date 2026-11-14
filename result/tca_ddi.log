@@ -1,0 +1,30 @@
+Namespace(dataset='ddi', thres=16)
+4267 4267 2140089
+=== Init lsh ===
+Preparing...
+Executing the CUDA kernel...
+mhcuda - success
+init LSH time (s) 1.1602191925048828
+=== TCU-Aware level clustering===
+reach row:  0
+reach row:  1000
+reach row:  2000
+reach row:  3000
+reach row:  4000
+reach row:  4266
+queue size:  1861452
+query LSH time (s):  186.37745118141174
+  of which pairwise jaccard (s):  5.198242902755737
+  of which datasketch LSH query (s):  181.179208278656
+clustering time (s):  21.04021453857422
+put into clusters time (s):  0.002487659454345703
+cluster_num: 292
+=== Cache-Aware level clustering ===
+reach cluster:  0
+cluster queue size: 10766
+query cluster LSH time (s):  2.1431806087493896
+cluster clustering time (s):  0.05848407745361328
+cluster_of_cluster_num:  56
+put clusters into clusters time (s):  0.00015306472778320312
+=== Save results ===
+write back time (s):  1.3793814182281494

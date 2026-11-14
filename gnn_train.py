@@ -44,7 +44,8 @@ RESULTS_DIR = ROOT / "result"
 # TR-source 是主代码; TR-abl-source 仅用于消融实验 (独立进程加载),
 # 所有 baseline 源码统一放在 baseline/ 下.
 DTC_PKG = BASE_DIR / "dtc"
-for _p in (str(LIBRA_PKG), str(MP_PKG), str(DTC_PKG),
+for _p in (str(LIBRA_PKG), str(LIBRA_PKG / "Libra-source"),
+           str(LIBRA_PKG / "Libra-source" / "SpMM"), str(MP_PKG), str(DTC_PKG),
            str(TR_MAIN), str(TR_MAIN / "SpMM")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -219,65 +220,76 @@ class TRBackend:
 
 
 class LibraBackend:
-    """Libra TCU/SPTC/CUDA three-route pipeline (needs npz graph files)."""
+    """官方 ParCIS/Libra: Libra5Block 分块预处理 + Libra6SpMM 三路 kernel.
+
+    官方 SpMM 规定配置 (eva100/kernel/spmm/spmm_h100_fp16_test_args.py):
+    window=8, wide=8, partsize_t=32, partsize_c=32, shortsize=3, density=8.
+    """
     name = "libra"
+    WINDOW, WIDE = 8, 8
+    PART_T, PART_C, SHORT, DENSITY = 32, 32, 3, 8
 
     def __init__(self):
         self.prep_A_s = self.prep_AT_s = 0.0
-        self._iA = self._iAT = None
+        self._pA = self._pAT = None
         self.n = 0
         self.dimN = DIM_N
         self._last_kernel_ms = float("nan")
 
-    @staticmethod
-    def _write_npz(A, tag):
-        d = GNN_DATA_ROOT / tag
-        p = d / f"{tag}.npz"
-        if p.exists():
-            return tag          # 复用已落盘的图文件, 避免把写盘算进 prep
-        coo = A.tocoo()
-        d.mkdir(parents=True, exist_ok=True)
-        np.savez(p,
-                 src_li=coo.row.astype(np.int64), dst_li=coo.col.astype(np.int64),
-                 values=coo.data.astype(np.float32),
-                 num_nodes_src=np.int64(A.shape[0]), num_nodes_dst=np.int64(A.shape[1]))
-        return tag
-
-    def _build(self, A, tag):
-        from tr_csr_fp16.mdataset2_online import GCN_dataset_tcu_sptc_cuda_online
-        os.environ["TR_DATA_ROOT"] = str(GNN_DATA_ROOT)
-        return GCN_dataset_tcu_sptc_cuda_online(
-            tag, self.dimN, 8, 32, 32, 3, tag, 16, 16,
-            tc_min_util=0.0, sptc_min_util=0.5, sptc_threshold=12)
+    def _build(self, A):
+        import Libra5Block
+        rows, cols = A.shape
+        M = rows + (self.WINDOW - rows % self.WINDOW) % self.WINDOW
+        A = A.tocsr()
+        A.sort_indices()
+        indptr = A.indptr
+        if M > rows:   # 与官方 test 一致: 行数补齐到 WINDOW 的倍数 (空行)
+            indptr = np.concatenate(
+                [indptr, np.full(M - rows, indptr[-1], dtype=indptr.dtype)])
+        rp = torch.from_numpy(np.ascontiguousarray(indptr, dtype=np.int32))
+        ci = torch.from_numpy(np.ascontiguousarray(A.indices, dtype=np.int32))
+        deg = torch.ones(int(A.nnz), dtype=torch.float32)
+        out = Libra5Block.block_tf32_tcu_cuda_binary(
+            rp, ci, deg, self.PART_T, self.PART_C, self.SHORT,
+            self.DENSITY, self.WINDOW, self.WIDE)
+        dev = "cuda"
+        args = [out[0].to(dev), out[1].to(dev), out[2].to(dev),
+                out[3].half().to(dev), out[4].to(dev), out[5].to(dev),
+                out[6].to(dev), out[7].to(dev), out[8].to(dev), out[9].to(dev),
+                out[10].to(dev), out[11].half().to(dev), out[12].to(dev),
+                out[13].to(dev), out[14].to(dev), out[15].to(dev),
+                out[16].half().to(dev)]
+        return dict(args=args, n_atomic=int(out[5].shape[0]),
+                    n_catomic=int(out[9].shape[0]),
+                    n_catomic_s=int(out[14].shape[0]),
+                    rows=rows, M=M, cols=cols)
 
     def preprocess(self, A, device, assume_undirected=False):
-        # tag 必须随矩阵变化: _write_npz 会复用同名文件, 固定 tag 会让第二个
-        # 矩阵读到上一个矩阵的图
-        tag = f"e2e_{A.shape[0]}_{A.shape[1]}_{A.nnz}"
         t = time.perf_counter()
-        self._iA = self._build(A, self._write_npz(A, tag))
-        self.n = self._iA.num_nodes_ori
+        self._pA = self._build(A)
         self.prep_A_s = time.perf_counter() - t
+        self.n = A.shape[0]
         t = time.perf_counter()
         if assume_undirected:
-            self._iAT, self.prep_AT_s = self._iA, 0.0
+            self._pAT, self.prep_AT_s = self._pA, 0.0
         else:
-            tagt = f"{tag}_T"
-            self._iAT = self._build(A.T.tocsr(), self._write_npz(A.T.tocsr(), tagt))
+            self._pAT = self._build(A.T.tocsr())
             self.prep_AT_s = time.perf_counter() - t
 
-    def _call(self, info, X):
-        from tr_csr_fp16 import test_tr_csr_online
-        info.x = X.detach().to(torch.float16)   # 保持 device, GPU 直通
-        out, t_ms, _, _ = test_tr_csr_online.kernel_tcu_sptc_cuda_online(info, 1)
-        self._last_kernel_ms = float(t_ms.item() if torch.is_tensor(t_ms) else t_ms)
-        return out[: self.n]
+    def _call(self, p, X):
+        import Libra6SpMM
+        x = X.detach().to(torch.float16).contiguous()
+        Y, ms = Libra6SpMM.forward_fp16_tcu_cuda(
+            *p["args"], x, p["n_atomic"], p["n_catomic"], self.PART_C,
+            p["n_catomic_s"], int(X.size(1)), p["M"], p["cols"], 1)
+        self._last_kernel_ms = float(ms.item() if torch.is_tensor(ms) else ms)
+        return Y[: p["rows"]]
 
     def spmm_A(self, X):
-        return self._call(self._iA, X)
+        return self._call(self._pA, X)
 
     def spmm_AT(self, dY):
-        return self._call(self._iAT, dY)
+        return self._call(self._pAT, dY)
 
 
 class MPBackend:

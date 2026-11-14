@@ -1,0 +1,51 @@
+rows=44
+tr     total=11 ok=11 timeout= 0 fail= 0
+mp     total=11 ok=11 timeout= 0 fail= 0
+libra  total=11 ok=11 timeout= 0 fail= 0
+dtc    total=11 ok= 7 timeout= 4 fail= 0
+
+ dataset            method   e2e_s     status
+ DD                 tr         0.256 ok
+ DD                 mp         1.232 ok
+ DD                 libra      0.382 ok
+ DD                 dtc      137.029 ok
+ OVCAR-8H           tr         0.961 ok
+ OVCAR-8H           mp         3.177 ok
+ OVCAR-8H           libra      2.176 ok
+ OVCAR-8H           dtc      658.024 ok
+ Yeast              tr         0.378 ok
+ Yeast              mp         2.883 ok
+ Yeast              libra      1.995 ok
+ Yeast              dtc      624.015 ok
+ YeastH             tr         1.002 ok
+ YeastH             mp         5.532 ok
+ YeastH             libra      3.849 ok
+ YeastH             dtc     1157.024 ok
+ ddi                tr         0.078 ok
+ ddi                mp         1.106 ok
+ ddi                libra      0.063 ok
+ ddi                dtc      218.046 ok
+ igb_small          tr         1.744 ok
+ igb_small          mp        15.575 ok
+ igb_small          libra      1.405 ok
+ igb_small          dtc      731.026 ok
+ ogbn_arxiv         tr         0.097 ok
+ ogbn_arxiv         mp         1.151 ok
+ ogbn_arxiv         libra      0.201 ok
+ ogbn_arxiv         dtc     1866.006 ok
+ ogbn_products      tr        15.067 ok
+ ogbn_products      mp       225.138 ok
+ ogbn_products      libra      9.113 ok
+ ogbn_products      dtc            - timeout
+ protein            tr         5.359 ok
+ protein            mp        47.012 ok
+ protein            libra      3.091 ok
+ protein            dtc            - timeout
+ reddit             tr         6.728 ok
+ reddit             mp        69.135 ok
+ reddit             libra      5.549 ok
+ reddit             dtc            - timeout
+ web-BerkStan       tr         0.420 ok
+ web-BerkStan       mp         3.731 ok
+ web-BerkStan       libra      0.935 ok
+ web-BerkStan       dtc            - timeout

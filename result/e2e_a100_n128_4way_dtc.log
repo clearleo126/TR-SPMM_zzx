@@ -1,0 +1,44 @@
+11 matrices, methods=['dtc'], dimN=[128], reps=1
+=== DD (334925, 334925) nnz=1686092 load=0.08s ===
+dynamic_shared_size: 92
+	 GPU Preprocess time: 0.0042236 seconds
+TC_Blocks:	100813
+Exp_Edges:	12904064
+  [OK] DD           dtc    N=128 prep=137.0043s cold=  22.7623ms hot=   2.1483ms kernel=  0.6738ms e2e= 137.0292s (n=1)
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.18s ===
+dynamic_shared_size: 60
+	 GPU Preprocess time: 0.00656294 seconds
+TC_Blocks:	353991
+Exp_Edges:	45310848
+  [OK] OVCAR-8H     dtc    N=128 prep=658.0069s cold=   8.8659ms hot=   8.3208ms kernel=  3.1939ms e2e= 658.0241s (n=1)
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.15s ===
+dynamic_shared_size: 44
+	 GPU Preprocess time: 0.00425605 seconds
+TC_Blocks:	314544
+Exp_Edges:	40261632
+  [OK] Yeast        dtc    N=128 prep=624.0045s cold=   5.4555ms hot=   4.8524ms kernel=  1.7623ms e2e= 624.0148s (n=1)
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.29s ===
+dynamic_shared_size: 60
+	 GPU Preprocess time: 0.00677242 seconds
+TC_Blocks:	578834
+Exp_Edges:	74090752
+  [OK] YeastH       dtc    N=128 prep=1157.0071s cold=   8.8669ms hot=   8.4841ms kernel=  3.1580ms e2e=1157.0244s (n=1)
+=== ddi (4267, 4267) nnz=2140089 load=0.13s ===
+dynamic_shared_size: 2940
+	 GPU Preprocess time: 0.0445337 seconds
+TC_Blocks:	41261
+Exp_Edges:	5281408
+  [OK] ddi          dtc    N=128 prep=218.0446s cold=   0.6175ms hot=   0.4627ms kernel=  0.3441ms e2e= 218.0457s (n=1)
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.54s ===
+dynamic_shared_size: 1796
+	 GPU Preprocess time: 0.0128259 seconds
+TC_Blocks:	1371221
+Exp_Edges:	175516288
+  [OK] igb_small    dtc    N=128 prep=731.0132s cold=   6.4294ms hot=   6.0749ms kernel=  4.1708ms e2e= 731.0257s (n=1)
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.05s ===
+dynamic_shared_size: 788
+	 GPU Preprocess time: 0.00343009 seconds
+TC_Blocks:	91273
+Exp_Edges:	11682944
+  [OK] ogbn_arxiv   dtc    N=128 prep=1866.0035s cold=   1.1529ms hot=   0.8994ms kernel=  0.3564ms e2e=1866.0056s (n=1)
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=5.25s ===

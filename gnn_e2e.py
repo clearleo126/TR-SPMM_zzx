@@ -113,12 +113,13 @@ def run_one(name, A, load_s, method, dimN, device):
         "kernel_ms": f"{_kernel_time(method, backend):.4f}",
         "e2e_s": f"{e2e_s:.4f}",
         "e2e_incl_load_s": f"{e2e_load_s:.4f}",
+        "status": "ok",
     }
 
 
 HEADER = ["dataset", "rows", "cols", "nnz", "method", "dimN", "load_s",
           "prep_s", "cold_ms", "hot_ms", "chain_2call_ms", "kernel_ms",
-          "e2e_s", "e2e_incl_load_s"]
+          "e2e_s", "e2e_incl_load_s", "status"]
 
 
 def _median_rec(recs):
@@ -166,6 +167,7 @@ def main():
               file=sys.stderr)
         # rep 在外层: 同一 rep 内 N 与方法相邻执行, 消除机器状态漂移
         acc = {(d, m): [] for d in args.dimN for m in args.methods}
+        fail_rec = {}
         failed = set()
         for _rep in range(max(1, args.reps)):
             for dimN in args.dimN:
@@ -180,16 +182,34 @@ def main():
                     torch.cuda.empty_cache()
                     try:
                         rec = run_one(name, A, load_s, method, dimN, device)
-                    except Exception as exc:  # missing MP bins / OOM
-                        print(f"  [SKIP] {name} {method} N={dimN}: {exc}",
-                              file=sys.stderr)
+                    except Exception as exc:  # missing MP bins / OOM / DTC timeout
+                        status = "timeout" if isinstance(exc, TimeoutError) else "fail"
+                        print(f"  [SKIP] {name} {method} N={dimN}: "
+                              f"[{status}] {exc}", file=sys.stderr)
                         failed.add(key)
+                        # 失败/超时也要落一行, 指标列留空, 避免整行缺失
+                        fail_rec[key] = {
+                            "dataset": name, "rows": A.shape[0], "cols": A.shape[1],
+                            "nnz": int(A.nnz), "method": method, "dimN": dimN,
+                            "load_s": f"{load_s:.4f}", "prep_s": "",
+                            "cold_ms": "", "hot_ms": "", "chain_2call_ms": "",
+                            "kernel_ms": "", "e2e_s": "", "e2e_incl_load_s": "",
+                            "status": status,
+                        }
                         continue
                     acc[key].append(rec)
         for dimN in args.dimN:
             for method in args.methods:
-                lst = acc[(dimN, method)]
+                key = (dimN, method)
+                lst = acc[key]
                 if not lst:
+                    rec = fail_rec.get(key)
+                    if rec is not None:
+                        n_rows += 1
+                        w.writerow(rec)
+                        f.flush()
+                        print(f"  [{rec['status'].upper()}] {name:12s} "
+                              f"{method:6s} N={dimN:<3d}", file=sys.stderr)
                     continue
                 best = _median_rec(lst)
                 n_rows += 1

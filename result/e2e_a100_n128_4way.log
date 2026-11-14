@@ -1,0 +1,214 @@
+11 matrices, methods=['tr', 'mp', 'libra'], dimN=[128], reps=1
+=== DD (334925, 334925) nnz=1686092 load=0.12s ===
+Elapsed time: 0.0941836 seconds
+[TR.cpp] SPTC metadata compression: 7.9319 ms
+[TR.cpp] TC dense-tile build: 0.0009 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 20933 (blocks: 71870, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=0, SPTC chunks=20933, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 20933 (仅大窗)
+[TR.cpp] 融合窗口: 0 / 20933 (阈值 128 块/路)
+[TR.cpp] H2D copy: 2.9916 ms
+    [mp-prep] DD: official 5-stage total = 0.799s
+Elapsed time: 0.18922 seconds
+  [OK] DD           tr     N=128 prep=  0.2262s cold=  28.3176ms hot=   1.5975ms kernel=  0.3901ms e2e=   0.2561s (n=1)
+  [OK] DD           mp     N=128 prep=  1.2115s cold=  19.7280ms hot=   0.8666ms kernel=     nanms e2e=   1.2321s (n=1)
+  [OK] DD           libra  N=128 prep=  0.2689s cold=  37.2910ms hot=  75.7207ms kernel=  0.9288ms e2e=   0.3819s (n=1)
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.18s ===
+Elapsed time: 0.310517 seconds
+[TR.cpp] SPTC metadata compression: 22.3147 ms
+[TR.cpp] TC dense-tile build: 0.0009 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 118097 (blocks: 240477, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=0, SPTC chunks=118097, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 118097 (仅大窗)
+[TR.cpp] 融合窗口: 0 / 118097 (阈值 128 块/路)
+[TR.cpp] H2D copy: 8.9144 ms
+    [mp-prep] OVCAR-8H: official 5-stage total = 1.945s
+Elapsed time: 1.32192 seconds
+  [OK] OVCAR-8H     tr     N=128 prep=  0.9048s cold=  50.0873ms hot=   6.0353ms kernel=  1.4694ms e2e=   0.9610s (n=1)
+  [OK] OVCAR-8H     mp     N=128 prep=  3.1619s cold=  11.8794ms hot=   2.9233ms kernel=     nanms e2e=   3.1767s (n=1)
+  [OK] OVCAR-8H     libra  N=128 prep=  1.6538s cold= 158.6021ms hot= 363.3329ms kernel=  3.3587ms e2e=   2.1758s (n=1)
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.12s ===
+Elapsed time: 0.0166798 seconds
+[TR.cpp] SPTC metadata compression: 19.3117 ms
+[TR.cpp] TC dense-tile build: 0.0011 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 106932 (blocks: 212542, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=0, SPTC chunks=106932, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 106932 (仅大窗)
+[TR.cpp] 融合窗口: 0 / 106932 (阈值 128 块/路)
+[TR.cpp] H2D copy: 8.7004 ms
+    [mp-prep] Yeast: official 5-stage total = 1.739s
+Elapsed time: 1.21869 seconds
+  [OK] Yeast        tr     N=128 prep=  0.3297s cold=  44.3422ms hot=   4.3373ms kernel=  1.0015ms e2e=   0.3784s (n=1)
+  [OK] Yeast        mp     N=128 prep=  2.8694s cold=  11.0808ms hot=   2.6215ms kernel=     nanms e2e=   2.8832s (n=1)
+  [OK] Yeast        libra  N=128 prep=  1.5195s cold= 146.3207ms hot= 329.0972ms kernel=  3.2338ms e2e=   1.9949s (n=1)
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.26s ===
+Elapsed time: 0.232331 seconds
+[TR.cpp] SPTC metadata compression: 36.2864 ms
+[TR.cpp] TC dense-tile build: 0.0014 ms
+[TR.cpp] TC chunks: 0 (blocks: 0, CHUNK=64, straggler=128)
+[TR.cpp] SPTC chunks: 196133 (blocks: 392554, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=0, SPTC chunks=196133, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 196133 (仅大窗)
+[TR.cpp] 融合窗口: 0 / 196133 (阈值 128 块/路)
+[TR.cpp] H2D copy: 13.0704 ms
+    [mp-prep] YeastH: official 5-stage total = 3.274s
+Elapsed time: 2.44046 seconds
+  [OK] YeastH       tr     N=128 prep=  0.9186s cold=  75.1575ms hot=   7.8067ms kernel=  1.8381ms e2e=   1.0015s (n=1)
+  [OK] YeastH       mp     N=128 prep=  5.5116s cold=  15.4317ms hot=   4.7539ms kernel=     nanms e2e=   5.5318s (n=1)
+  [OK] YeastH       libra  N=128 prep=  2.9792s cold= 280.0885ms hot= 589.5511ms kernel=  5.3064ms e2e=   3.8489s (n=1)
+=== ddi (4267, 4267) nnz=2140089 load=0.09s ===
+Elapsed time: 0.0298897 seconds
+[TR.cpp] SPTC metadata compression: 3.4608 ms
+[TR.cpp] TC dense-tile build: 0.3914 ms
+[TR.cpp] TC chunks: 213 (blocks: 3623, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 725 (blocks: 37900, CHUNK=64, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=213, SPTC chunks=725, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 155, SPTC 615 (仅大窗)
+[TR.cpp] 融合窗口: 58 / 267 (阈值 128 块/路)
+[TR.cpp] H2D copy: 1.8066 ms
+    [mp-prep] ddi: official 5-stage total = 0.823s
+Elapsed time: 0.0344016 seconds
+  [OK] ddi          tr     N=128 prep=  0.0678s cold=   9.7648ms hot=   0.5449ms kernel=  0.1659ms e2e=   0.0781s (n=1)
+  [OK] ddi          mp     N=128 prep=  1.1015s cold=   3.9366ms hot=   0.5981ms kernel=     nanms e2e=   1.1060s (n=1)
+  [OK] ddi          libra  N=128 prep=  0.0505s cold=   6.1842ms hot=   6.3870ms kernel=  0.3512ms e2e=   0.0631s (n=1)
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.56s ===
+Elapsed time: 0.3079 seconds
+[TR.cpp] SPTC metadata compression: 72.0978 ms
+[TR.cpp] TC dense-tile build: 0.1609 ms
+[TR.cpp] TC chunks: 463 (blocks: 2471, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 62500 (blocks: 785499, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=463, SPTC chunks=62500, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 62037 (仅大窗)
+[TR.cpp] 融合窗口: 463 / 62500 (阈值 128 块/路)
+[TR.cpp] H2D copy: 23.2632 ms
+    [mp-prep] igb_small: official 5-stage total = 10.928s
+Elapsed time: 0.762721 seconds
+  [OK] igb_small    tr     N=128 prep=  1.5682s cold= 166.3531ms hot=   9.3282ms kernel=  3.8543ms e2e=   1.7439s (n=1)
+  [OK] igb_small    mp     N=128 prep= 15.5455s cold=  25.9083ms hot=   3.9977ms kernel=     nanms e2e=  15.5754s (n=1)
+  [OK] igb_small    libra  N=128 prep=  1.0793s cold= 107.1499ms hot= 218.4546ms kernel=  2.9952ms e2e=   1.4049s (n=1)
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.04s ===
+Elapsed time: 0.00344998 seconds
+[TR.cpp] SPTC metadata compression: 7.9767 ms
+[TR.cpp] TC dense-tile build: 0.1452 ms
+[TR.cpp] TC chunks: 61 (blocks: 174, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 10584 (blocks: 75980, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=61, SPTC chunks=10584, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 10523 (仅大窗)
+[TR.cpp] 融合窗口: 61 / 10584 (阈值 128 块/路)
+[TR.cpp] H2D copy: 3.4643 ms
+    [mp-prep] ogbn_arxiv: official 5-stage total = 0.841s
+Elapsed time: 0.0902633 seconds
+  [OK] ogbn_arxiv   tr     N=128 prep=  0.0784s cold=  17.9207ms hot=   1.0831ms kernel=  0.2796ms e2e=   0.0974s (n=1)
+  [OK] ogbn_arxiv   mp     N=128 prep=  1.1461s cold=   4.6409ms hot=   0.5582ms kernel=     nanms e2e=   1.1513s (n=1)
+  [OK] ogbn_arxiv   libra  N=128 prep=  0.1385s cold=  20.3404ms hot=  41.7800ms kernel=  0.4639ms e2e=   0.2006s (n=1)
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=5.63s ===
+Elapsed time: 1.96833 seconds
+[TR.cpp] SPTC metadata compression: 808.2894 ms
+[TR.cpp] TC dense-tile build: 47.6985 ms
+[TR.cpp] TC chunks: 8360 (blocks: 145234, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 187011 (blocks: 7666587, CHUNK=64, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=8360, SPTC chunks=187011, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 854, SPTC 178108 (仅大窗)
+[TR.cpp] 融合窗口: 7506 / 153065 (阈值 128 块/路)
+[TR.cpp] H2D copy: 210.5507 ms
+    [mp-prep] ogbn_products: official 5-stage total = 137.206s
+Elapsed time: 6.37987 seconds
+  [OK] ogbn_products tr     N=128 prep= 13.3170s cold=1686.2896ms hot=  63.6306ms kernel= 30.1179ms e2e=  15.0669s (n=1)
+  [OK] ogbn_products mp     N=128 prep=224.7096s cold= 397.1430ms hot=  30.8870ms kernel=     nanms e2e= 225.1376s (n=1)
+  [OK] ogbn_products libra  N=128 prep=  8.0214s cold= 426.8943ms hot= 664.2151ms kernel= 20.7698ms e2e=   9.1126s (n=1)
+=== protein (132534, 132534) nnz=79255038 load=3.35s ===
+Elapsed time: 0.372023 seconds
+[TR.cpp] SPTC metadata compression: 242.0773 ms
+[TR.cpp] TC dense-tile build: 52.9768 ms
+[TR.cpp] TC chunks: 4930 (blocks: 134228, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 8276 (blocks: 2547848, CHUNK=1073741824, straggler=1073741824)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=4930, SPTC chunks=8276, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 3924, SPTC 7278 (仅大窗)
+[TR.cpp] 融合窗口: 1006 / 8284 (阈值 128 块/路)
+[TR.cpp] H2D copy: 69.4868 ms
+    [mp-prep] protein: official 5-stage total = 36.288s
+Elapsed time: 2.20273 seconds
+  [OK] protein      tr     N=128 prep=  4.7729s cold= 567.9334ms hot=  18.1969ms kernel=  8.6938ms e2e=   5.3590s (n=1)
+  [OK] protein      mp     N=128 prep= 46.9212s cold=  83.3466ms hot=   7.4292ms kernel=     nanms e2e=  47.0120s (n=1)
+  [OK] protein      libra  N=128 prep=  2.7474s cold= 170.9392ms hot= 173.1415ms kernel=  8.5576ms e2e=   3.0915s (n=1)
+=== reddit (232965, 232965) nnz=114848857 load=2.07s ===
+Elapsed time: 0.734651 seconds
+[TR.cpp] SPTC metadata compression: 331.2049 ms
+[TR.cpp] TC dense-tile build: 39.3549 ms
+[TR.cpp] TC chunks: 4624 (blocks: 77569, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 60801 (blocks: 3403340, CHUNK=64, straggler=64)
+[TR.cpp] 路由模式: 双流并发 (TC chunks=4624, SPTC chunks=60801, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 2678, SPTC 58101 (仅大窗)
+[TR.cpp] 融合窗口: 1946 / 14561 (阈值 128 块/路)
+[TR.cpp] H2D copy: 89.4582 ms
+    [mp-prep] reddit: official 5-stage total = 55.036s
+Elapsed time: 4.27349 seconds
+  [OK] reddit       tr     N=128 prep=  5.9732s cold= 722.3421ms hot=  32.7659ms kernel= 16.0113ms e2e=   6.7283s (n=1)
+  [OK] reddit       mp     N=128 prep= 69.0038s cold= 112.3744ms hot=  18.4061ms kernel=     nanms e2e=  69.1346s (n=1)
+  [OK] reddit       libra  N=128 prep=  5.0900s cold= 249.8990ms hot= 209.3351ms kernel= 13.4042ms e2e=   5.5492s (n=1)
+=== web-BerkStan (685230, 685230) nnz=7600595 load=0.21s ===
+Elapsed time: 0.0120726 seconds
+[TR.cpp] SPTC metadata compression: 13.0952 ms
+[TR.cpp] TC dense-tile build: 4.7554 ms
+[TR.cpp] TC chunks: 10660 (blocks: 21660, CHUNK=32, straggler=128)
+[TR.cpp] SPTC chunks: 42722 (blocks: 141688, CHUNK=32, straggler=64)
+[TR.cpp] 路由模式: 串行(TC直写→SPTC累加) (TC chunks=10660, SPTC chunks=42722, 阈值=3456)
+[TR.cpp] 融合后双路 chunk: TC 0, SPTC 32320 (仅大窗)
+[TR.cpp] 融合窗口: 10660 / 42827 (阈值 128 块/路)
+[TR.cpp] H2D copy: 6.7493 ms
+    [mp-prep] web-BerkStan: official 5-stage total = 3.107s
+Elapsed time: 0.478201 seconds
+  [OK] web-BerkStan tr     N=128 prep=  0.3781s cold=  39.3179ms hot=   2.3059ms kernel=  0.6339ms e2e=   0.4197s (n=1)
+  [OK] web-BerkStan mp     N=128 prep=  3.7201s cold=   9.8604ms hot=   1.4107ms kernel=     nanms e2e=   3.7314s (n=1)
+  [OK] web-BerkStan libra  N=128 prep=  0.7051s cold=  71.7378ms hot= 158.1608ms kernel=  2.1770ms e2e=   0.9350s (n=1)
+[done] 33 rows -> result/e2e_a100_n128_4way.csv
+=== RECORDER end   2026-11-14T11:07:26+00:00 elapsed=420s pid=81337 ===
+
+===== DTC pass (on-site TCA reorder cache, DTC_PREP_TIMEOUT=1500) =====
+11 matrices, methods=['dtc'], dimN=[128], reps=1
+=== DD (334925, 334925) nnz=1686092 load=0.08s ===
+dynamic_shared_size: 92
+	 GPU Preprocess time: 0.0042236 seconds
+TC_Blocks:	100813
+Exp_Edges:	12904064
+  [OK] DD           dtc    N=128 prep=137.0043s cold=  22.7623ms hot=   2.1483ms kernel=  0.6738ms e2e= 137.0292s (n=1)
+=== OVCAR-8H (1889542, 1889542) nnz=3946402 load=0.18s ===
+dynamic_shared_size: 60
+	 GPU Preprocess time: 0.00656294 seconds
+TC_Blocks:	353991
+Exp_Edges:	45310848
+  [OK] OVCAR-8H     dtc    N=128 prep=658.0069s cold=   8.8659ms hot=   8.3208ms kernel=  3.1939ms e2e= 658.0241s (n=1)
+=== Yeast (1710902, 1710902) nnz=3636546 load=0.15s ===
+dynamic_shared_size: 44
+	 GPU Preprocess time: 0.00425605 seconds
+TC_Blocks:	314544
+Exp_Edges:	40261632
+  [OK] Yeast        dtc    N=128 prep=624.0045s cold=   5.4555ms hot=   4.8524ms kernel=  1.7623ms e2e= 624.0148s (n=1)
+=== YeastH (3138114, 3138114) nnz=6487230 load=0.29s ===
+dynamic_shared_size: 60
+	 GPU Preprocess time: 0.00677242 seconds
+TC_Blocks:	578834
+Exp_Edges:	74090752
+  [OK] YeastH       dtc    N=128 prep=1157.0071s cold=   8.8669ms hot=   8.4841ms kernel=  3.1580ms e2e=1157.0244s (n=1)
+=== ddi (4267, 4267) nnz=2140089 load=0.13s ===
+dynamic_shared_size: 2940
+	 GPU Preprocess time: 0.0445337 seconds
+TC_Blocks:	41261
+Exp_Edges:	5281408
+  [OK] ddi          dtc    N=128 prep=218.0446s cold=   0.6175ms hot=   0.4627ms kernel=  0.3441ms e2e= 218.0457s (n=1)
+=== igb_small (1000000, 1000000) nnz=12068130 load=0.54s ===
+dynamic_shared_size: 1796
+	 GPU Preprocess time: 0.0128259 seconds
+TC_Blocks:	1371221
+Exp_Edges:	175516288
+  [OK] igb_small    dtc    N=128 prep=731.0132s cold=   6.4294ms hot=   6.0749ms kernel=  4.1708ms e2e= 731.0257s (n=1)
+=== ogbn_arxiv (169343, 169343) nnz=1166243 load=0.05s ===
+dynamic_shared_size: 788
+	 GPU Preprocess time: 0.00343009 seconds
+TC_Blocks:	91273
+Exp_Edges:	11682944
+  [OK] ogbn_arxiv   dtc    N=128 prep=1866.0035s cold=   1.1529ms hot=   0.8994ms kernel=  0.3564ms e2e=1866.0056s (n=1)
+=== ogbn_products (2449029, 2449029) nnz=123718152 load=5.25s ===

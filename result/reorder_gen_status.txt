@@ -1,0 +1,17 @@
+=== reorder gen start 2026-11-14T12:14:00+00:00 ===
+ddi OK rc=0 gen_s=218 (3000s cap; actual wall clock recorded)
+=== reorder gen start 2026-11-14T12:18:41+00:00 ===
+2026-11-14T12:18:41+00:00 DD start
+2026-11-14T12:20:58+00:00 DD OK rc=0 gen_s=137
+2026-11-14T12:20:58+00:00 ogbn_arxiv start
+2026-11-14T12:52:04+00:00 ogbn_arxiv OK rc=0 gen_s=1866
+2026-11-14T12:52:04+00:00 Yeast start
+2026-11-14T13:02:28+00:00 Yeast OK rc=0 gen_s=624
+2026-11-14T13:02:28+00:00 OVCAR-8H start
+2026-11-14T13:13:26+00:00 OVCAR-8H OK rc=0 gen_s=658
+2026-11-14T13:13:26+00:00 igb_small start
+2026-11-14T13:25:37+00:00 igb_small OK rc=0 gen_s=731
+2026-11-14T13:25:37+00:00 YeastH start
+2026-11-14T13:44:54+00:00 YeastH OK rc=0 gen_s=1157
+2026-11-14T13:44:54+00:00 dtc e2e start
+2026-11-14T14:07:27+00:00 dtc TO pass start (web-BerkStan protein ogbn_products reddit)
